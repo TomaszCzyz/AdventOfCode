@@ -1,6 +1,8 @@
 use std::fs::File;
 use std::io::{self, BufReader, prelude::*};
 
+pub mod rock_paper_scissors_part_1;
+
 pub fn calculate_max_calories(file_name: &str) -> Result<(i32, i32), io::Error> {
     let file = File::open(file_name)?;
     let reader = BufReader::new(file);
