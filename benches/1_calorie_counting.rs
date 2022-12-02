@@ -1,6 +1,6 @@
 use criterion::{Criterion, criterion_group, criterion_main};
 
-use advent_of_code_2022::{calculate_max_calories, calculate_top_n_max_calories};
+use advent_of_code_2022::calorie_counting::{calculate_max_calories, calculate_top_n_max_calories};
 
 fn calorie_counting_part_1(c: &mut Criterion) {
     c.bench_function("task 1 - Calorie Counting - part 1", |b| b.iter(|| calculate_max_calories_default_params()));

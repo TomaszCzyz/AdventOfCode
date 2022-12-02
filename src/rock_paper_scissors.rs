@@ -48,10 +48,6 @@ impl From<i32> for BattleResult {
     }
 }
 
-fn battle_simulation(me: AttackType, opp: AttackType) -> BattleResult {
-    BattleResult::from(BATTLE_RESULT[opp as usize][me as usize])
-}
-
 fn opp_mapping(letter: char) -> AttackType {
     match letter {
         'A' => AttackType::Rock,
@@ -99,7 +95,7 @@ pub fn rock_paper_scissors_part_1(file_name: &str) -> Result<(), io::Error> {
         let opponent = opp_mapping(iter.next().unwrap());
         let me = me_mapping(iter.skip(1).next().unwrap());
 
-        let battle_result = battle_simulation(me, opponent);
+        let battle_result = BattleResult::from(BATTLE_RESULT[opponent as usize][me as usize]);
 
         sum += calculate_point_for_round(battle_result, me);
         println!("opponent: {:?} \t\t me: {:?} \t\t\t result: {:?}", opponent, me, battle_result);
@@ -137,7 +133,7 @@ pub fn rock_paper_scissors_part_2(file_name: &str) -> Result<(), io::Error> {
             .map(|x| AttackType::from(x as i32))
             .unwrap();
 
-        let battle_result = battle_simulation(my_attack, opponent);
+        let battle_result = BattleResult::from(BATTLE_RESULT[opponent as usize][my_attack as usize]);
 
         sum += calculate_point_for_round(battle_result, my_attack);
         println!("opponent: {:?} \t\t me: {:?} \t\t\t result: {:?}", opponent, my_attack, battle_result);
