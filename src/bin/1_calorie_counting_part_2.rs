@@ -1,4 +1,4 @@
-use advent_of_code_2022::calculate_top_n_max_calories;
+use advent_of_code_2022::calorie_counting::calculate_top_n_max_calories;
 
 fn main() {
     if let Ok(calories) = calculate_top_n_max_calories("input.txt", 5) {
