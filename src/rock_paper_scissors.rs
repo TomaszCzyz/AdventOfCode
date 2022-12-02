@@ -19,6 +19,17 @@ enum AttackType {
     Scissors = 2,
 }
 
+impl From<i32> for AttackType {
+    fn from(value: i32) -> Self {
+        match value {
+            0 => AttackType::Rock,
+            1 => AttackType::Paper,
+            2 => AttackType::Scissors,
+            _ => panic!()
+        }
+    }
+}
+
 #[derive(Copy, Clone, Debug)]
 enum BattleResult {
     Win = 1,
@@ -92,6 +103,44 @@ pub fn rock_paper_scissors_part_1(file_name: &str) -> Result<(), io::Error> {
 
         sum += calculate_point_for_round(battle_result, me);
         println!("opponent: {:?} \t\t me: {:?} \t\t\t result: {:?}", opponent, me, battle_result);
+    }
+
+    println!("total points: {}", sum);
+    Ok(())
+}
+
+fn expectation_mapping(letter: char) -> BattleResult {
+    match letter {
+        'X' => BattleResult::Lose,
+        'Y' => BattleResult::Draw,
+        'Z' => BattleResult::Win,
+        _ => panic!()
+    }
+}
+
+pub fn rock_paper_scissors_part_2(file_name: &str) -> Result<(), io::Error> {
+    let file = File::open(file_name)?;
+    let reader = BufReader::new(file);
+
+    let mut sum = 0;
+
+    for result in reader.lines() {
+        let line = result.unwrap();
+        let mut iter = line.chars();
+
+        let opponent = opp_mapping(iter.next().unwrap());
+        let expected_result = expectation_mapping(iter.skip(1).next().unwrap());
+
+        let my_attack: AttackType = BATTLE_RESULT[opponent as usize]
+            .iter()
+            .position(|&x| x == (expected_result as i32))
+            .map(|x| AttackType::from(x as i32))
+            .unwrap();
+
+        let battle_result = battle_simulation(my_attack, opponent);
+
+        sum += calculate_point_for_round(battle_result, my_attack);
+        println!("opponent: {:?} \t\t me: {:?} \t\t\t result: {:?}", opponent, my_attack, battle_result);
     }
 
     println!("total points: {}", sum);
