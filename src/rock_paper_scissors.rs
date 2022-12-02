@@ -133,10 +133,8 @@ pub fn rock_paper_scissors_part_2(file_name: &str) -> Result<(), io::Error> {
             .map(|x| AttackType::from(x as i32))
             .unwrap();
 
-        let battle_result = BattleResult::from(BATTLE_RESULT[opponent as usize][my_attack as usize]);
-
-        sum += calculate_point_for_round(battle_result, my_attack);
-        println!("opponent: {:?} \t\t me: {:?} \t\t\t result: {:?}", opponent, my_attack, battle_result);
+        sum += calculate_point_for_round(expected_result, my_attack);
+        println!("opponent: {:?} \t\t me: {:?} \t\t\t result: {:?}", opponent, my_attack, expected_result);
     }
 
     println!("total points: {}", sum);
