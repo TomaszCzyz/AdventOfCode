@@ -114,8 +114,6 @@ pub fn rucksack_reorganization_part_2(file_name: &str) -> i32 {
         let intersection: HashSet<char> = first_set.intersection(&second_set).copied().collect();
         let intersection_2: Vec<&char> = third_set.intersection(&intersection).collect();
 
-        println!("intersection of 3: {}", intersection_2.first().unwrap());
-
         total += sum_chars(intersection_2);
     }
 
