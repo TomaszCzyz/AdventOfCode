@@ -6,8 +6,8 @@ type Stacks = Vec<Vec<char>>;
 #[derive(Debug)]
 struct Move {
     qty: i32,
-    start: i32,
-    end: i32,
+    start: usize,
+    end: usize,
 }
 
 
@@ -60,20 +60,37 @@ fn read_input(file_name: &str) -> (Stacks, Vec<Move>) {
                 moves.push(
                     Move {
                         qty: info[0],
-                        start: info[1],
-                        end: info[2],
+                        start: (info[1] - 1) as usize,
+                        end: (info[2] - 1) as usize,
                     }
                 );
             }
         }
     };
 
+    // println!("{:?}", stacks);
+    // println!("{:?}", moves);
     (stacks, moves)
 }
 
 
 pub fn supply_stacks_part_1(file_name: &str) -> String {
-    read_input(file_name);
+    let (mut stacks, moves) = read_input(file_name);
 
-    String::new()
+    for move_ in moves.iter() {
+        for _ in 0..move_.qty {
+            let elem = stacks[move_.start].pop().unwrap();
+            stacks[move_.end].push(elem)
+        }
+    }
+
+
+    let mut result = Vec::new();
+    for stack in stacks.iter() {
+        result.push(stack.last().copied().unwrap())
+    }
+
+    println!("{:?}", stacks);
+
+    String::from_iter(result)
 }
