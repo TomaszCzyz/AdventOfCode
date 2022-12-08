@@ -1,3 +1,4 @@
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -136,8 +137,6 @@ pub fn print_children(node: Rc<RefCell<TreeNode>>, indent: u32) {
 }
 
 fn find_child_by_name(root: Rc<RefCell<TreeNode>>, folder_name: &str) -> Option<Rc<RefCell<TreeNode>>> {
-    println!("trying to find [{}] in folder {:?}", folder_name, root.borrow().value);
-
     for node in RefCell::borrow(&root).children.iter() {
         let item_type: &ItemType = &RefCell::borrow(node).value;
 
@@ -175,7 +174,6 @@ fn calculate_item_size(node: Rc<RefCell<TreeNode>>) -> i32 {
     sum
 }
 
-
 fn calculate_all_sizes(node: Rc<RefCell<TreeNode>>) -> i32 {
     let mut total = 0;
 
@@ -184,12 +182,11 @@ fn calculate_all_sizes(node: Rc<RefCell<TreeNode>>) -> i32 {
 
         match item_type {
             ItemType::File { .. } => continue,
-            ItemType::Folder { name } => {
+            ItemType::Folder { .. } => {
                 let size = calculate_item_size(Rc::clone(node));
 
                 if size < 100_000 {
                     total += size;
-                    println!("adding size: {size} for folder [{name}]");
                 }
 
                 total += calculate_all_sizes(Rc::clone(node));
@@ -200,7 +197,7 @@ fn calculate_all_sizes(node: Rc<RefCell<TreeNode>>) -> i32 {
     total
 }
 
-pub fn no_space_left_on_device_part_1(file_name: &str) -> i32 {
+fn init_tree(file_name: &str) -> Rc<RefCell<TreeNode>> {
     let root = Rc::new(RefCell::new(TreeNode::new()));
     let mut current_folder = Rc::clone(&root);
 
@@ -244,9 +241,47 @@ pub fn no_space_left_on_device_part_1(file_name: &str) -> i32 {
         }
     }
 
+    root
+}
+
+fn get_all_dir_sizes(node: Rc<RefCell<TreeNode>>, dir_sizes: &mut Vec<i32>) {
+    for child in RefCell::borrow(&node).children.iter() {
+        match &RefCell::borrow(child).value {
+            ItemType::File { .. } => continue,
+            ItemType::Folder { .. } => {
+                dir_sizes.push(calculate_item_size(Rc::clone(child)));
+
+                get_all_dir_sizes(Rc::clone(child), dir_sizes);
+            }
+        }
+    }
+}
+
+pub fn no_space_left_on_device_part_1(file_name: &str) -> i32 {
+    let root = init_tree(file_name);
     print(Rc::clone(&root));
+
     calculate_all_sizes(Rc::clone(&root))
 }
 
+pub fn no_space_left_on_device_part_2(file_name: &str) -> i32 {
+    let max_space = 70_000_000;
+    let required_space = 30_000_000;
+    let root = init_tree(file_name);
 
-// pub fn no_space_left_on_device_part_2(file_name: &str) {}
+    let missing_space = calculate_item_size(Rc::clone(&root)) - (max_space - required_space);
+    let mut dir_sizes: Vec<i32> = Vec::new();
+
+    get_all_dir_sizes(Rc::clone(&root), &mut dir_sizes);
+
+    let mut closest_size = max_space;
+    for dir_size in dir_sizes.iter() {
+        let diff = dir_size - missing_space;
+        if diff > 0 && closest_size - missing_space > dir_size - missing_space {
+            closest_size = *dir_size;
+        }
+    }
+
+    closest_size
+}
+
