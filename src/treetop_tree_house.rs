@@ -272,7 +272,7 @@ fn print(rl_scenic_score: &[Vec<usize>]) {
     for row in rl_scenic_score.iter() {
         let row_str = row
             .iter()
-            .map(|elem| format!("{:>3}", elem))
+            .map(|elem| format!("{:>5}", elem))
             .collect::<Vec<String>>()
             .join(" ");
         println!("{}", row_str);
