@@ -90,6 +90,11 @@ pub fn rock_paper_scissors_part_1(file_name: &str) -> Result<(), io::Error> {
 
     for result in reader.lines() {
         let line = result.unwrap();
+        // let line = match result {
+        //     Ok(line) => line,
+        //     Err(_) => break
+        // };
+
         let mut iter = line.chars();
 
         let opponent = opp_mapping(iter.next().unwrap());
