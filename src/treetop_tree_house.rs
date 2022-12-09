@@ -1,3 +1,4 @@
+use std::cmp::max;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -119,18 +120,19 @@ fn analyze_visibility<'a>(direction: &'a str, visible_cords: &mut HashSet<(&'a s
     }
 }
 
-pub fn treetop_tree_house_part_2(file_name: &str) {
+pub fn treetop_tree_house_part_2(file_name: &str) -> usize {
     let rows = read_input(file_name);
     let length = rows.len();
     let width = rows[0].len();
 
+    let mut lr_scenic_score = vec![vec![0; width]; length];
     let mut rl_scenic_score = vec![vec![0; width]; length];
     let mut tb_scenic_score = vec![vec![0; width]; length];
     let mut bt_scenic_score = vec![vec![0; width]; length];
-    let mut lr_scenic_score = vec![vec![0; width]; length];
 
     let mut row_index = 1;
 
+    // from left to right
     while row_index < length - 1 {
         let mut col_index = 1;
 
@@ -141,11 +143,12 @@ pub fn treetop_tree_house_part_2(file_name: &str) {
             while col_index as i32 - dist as i32 >= 0 {
                 let previous_height = rows[row_index][col_index - dist];
 
+                dist += 1;
                 if previous_height >= current_height {
                     break;
                 }
-                dist += 1;
             }
+            dist -= 1;
 
             lr_scenic_score[row_index][col_index] = dist;
 
@@ -158,7 +161,7 @@ pub fn treetop_tree_house_part_2(file_name: &str) {
     let mut row_index = 1;
 
     while row_index < length - 1 {
-        let mut col_index = width - 1;
+        let mut col_index = width - 2;
 
         while col_index > 0 {
             let current_height = rows[row_index][col_index];
@@ -167,13 +170,12 @@ pub fn treetop_tree_house_part_2(file_name: &str) {
             while col_index + dist < width {
                 let next_height = rows[row_index][col_index + dist];
 
-                println!("comparing: {current_height} with {next_height}");
-
+                dist += 1;
                 if next_height >= current_height {
                     break;
                 }
-                dist += 1;
             }
+            dist -= 1;
 
             rl_scenic_score[row_index][col_index] = dist;
 
@@ -182,13 +184,91 @@ pub fn treetop_tree_house_part_2(file_name: &str) {
         row_index += 1;
     }
 
+    // from top to bottom
+    let mut col_index = 1;
 
-    print(&mut lr_scenic_score);
-    print(&mut rl_scenic_score);
-    // println!("{:?}", rl_scenic_score);
+    while col_index < width - 1 {
+        let mut row_index = 1;
+
+        while row_index < length - 1 {
+            let current_height = rows[row_index][col_index];
+
+            let mut dist = 1;
+            while row_index + dist < length {
+                let next_height = rows[row_index + dist][col_index];
+
+                dist += 1;
+                if next_height >= current_height {
+                    break;
+                }
+            }
+            dist -= 1;
+
+            tb_scenic_score[row_index][col_index] = dist;
+
+            row_index += 1;
+        }
+        col_index += 1;
+    }
+
+    // from bottom to top
+    let mut col_index = 1;
+
+    while col_index < width - 1 {
+        let mut row_index = length - 2;
+
+        while row_index > 0 {
+            let current_height = rows[row_index][col_index];
+
+            let mut dist = 1;
+            while row_index as i32 - dist as i32 >= 0 {
+                let next_height = rows[row_index - dist][col_index];
+
+                dist += 1;
+                if next_height >= current_height {
+                    break;
+                }
+            }
+            dist -= 1;
+
+            bt_scenic_score[row_index][col_index] = dist;
+
+            row_index -= 1;
+        }
+        col_index += 1;
+    }
+
+    println!("->");
+    print(&lr_scenic_score);
+
+    println!("<-");
+    print(&rl_scenic_score);
+
+    println!("↓");
+    print(&tb_scenic_score);
+
+    println!("↑");
+    print(&bt_scenic_score);
+
+    let mut max_scenic_score = 0;
+    let mut total_scenic_score = vec![vec![0; width]; length];
+    for (i, row) in total_scenic_score.iter_mut().enumerate() {
+        for (j, elem) in row.iter_mut().enumerate() {
+            *elem = lr_scenic_score[i][j] * rl_scenic_score[i][j] * tb_scenic_score[i][j] * bt_scenic_score[i][j];
+
+            if *elem > max_scenic_score {
+                max_scenic_score = *elem;
+            }
+        }
+    }
+
+    println!("total scenic score:");
+    print(&total_scenic_score);
+
+    max_scenic_score
 }
 
-fn print(rl_scenic_score: &mut [Vec<usize>]) {
+fn print(rl_scenic_score: &[Vec<usize>]) {
     for row in rl_scenic_score.iter() {
         let row_str = row
             .iter()
