@@ -1,4 +1,3 @@
-use std::cmp::max;
 use std::collections::HashSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader};

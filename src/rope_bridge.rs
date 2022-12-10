@@ -1,3 +1,5 @@
+use std::borrow::BorrowMut;
+use std::f32::consts::SQRT_2;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
@@ -79,67 +81,94 @@ fn expand_map(map: &mut Vec<Vec<char>>, direction: Direction) {
 }
 
 pub fn rope_bridge_part_1(file_name: &str) -> i32 {
+    rope_bridge_part_2(file_name, 2)
+}
+
+#[derive(Clone, Copy)]
+struct Knot {
+    row: i32,
+    col: i32,
+}
+
+pub fn rope_bridge_part_2(file_name: &str, knots_num: usize) -> i32 {
     let initial_size = 2;
     let half = (initial_size / 2) as i32;
 
     let mut head_map = vec![vec!['.'; initial_size]; initial_size];
     let mut tail_map = vec![vec!['.'; initial_size]; initial_size];
 
-    let (mut head_row, mut head_col): (i32, i32) = (half, half);
-    let (mut tail_row, mut tail_col): (i32, i32) = (half, half);
-
-    head_map[head_row as usize][head_col as usize] = '#';
+    let mut knots = vec![Knot { row: half, col: half }; knots_num];
 
     for (direction, dist) in read_input(file_name) {
         for _ in 0..dist {
             match direction {
-                Direction::Left => head_row -= 1,
-                Direction::Right => head_row += 1,
-                Direction::Up => head_col += 1,
-                Direction::Down => head_col -= 1,
+                Direction::Left => knots[0].row -= 1,
+                Direction::Right => knots[0].row += 1,
+                Direction::Up => knots[0].col += 1,
+                Direction::Down => knots[0].col -= 1,
             };
 
-            if head_row < 0 {
-                expand_map(&mut head_map, Direction::Up);
-                expand_map(&mut tail_map, Direction::Up);
-                head_row += 1;
-                tail_row += 1;
+            extend_maps_id_needed(&mut head_map, &mut tail_map, &mut knots);
+
+            for i in 0..knots.len() - 1 {
+                let first = knots[i];
+                let second = knots[i + 1].borrow_mut();
+                update_tail_cords_new(first, second);
             }
 
-            if head_col < 0 {
-                expand_map(&mut head_map, Direction::Left);
-                expand_map(&mut tail_map, Direction::Left);
-                head_col += 1;
-                tail_col += 1;
-            }
+            head_map[knots[0].row as usize][knots[0].col as usize] = '$';
+            tail_map[knots.last().unwrap().row as usize][knots.last().unwrap().col as usize] = '#';
 
-            if head_row >= head_map.len() as i32 {
-                expand_map(&mut head_map, Direction::Down);
-                expand_map(&mut tail_map, Direction::Down);
-            }
-
-            if head_col >= head_map[0].len() as i32 {
-                expand_map(&mut head_map, Direction::Right);
-                expand_map(&mut tail_map, Direction::Right);
-            }
-
-
-            assert!(head_row >= 0);
-            assert!(head_col >= 0);
-
-            update_tail_cords(&head_row, &head_col, &mut tail_row, &mut tail_col);
-
-            head_map[head_row as usize][head_col as usize] = '$';
-            tail_map[tail_row as usize][tail_col as usize] = '#';
+            // print_knots(&knots, head_map.len(), head_map[0].len());
         }
     }
 
-    // print(&head_map);
-    // print(&tail_map);
+    print(&head_map);
+    print(&tail_map);
 
-    let r: i32 = count_marked(&tail_map);
+    count_marked(&tail_map)
+}
 
-    r
+fn print_knots(knots: &[Knot], length: usize, width: usize) {
+    let mut array = vec![vec!['.'; width]; length];
+
+    for (i, knot) in knots.iter().enumerate() {
+        array[knot.row as usize][knot.col as usize] = format!("{i}").parse().unwrap();
+    }
+
+    print(&array);
+}
+
+fn extend_maps_id_needed(
+    head_map: &mut Vec<Vec<char>>,
+    tail_map: &mut Vec<Vec<char>>,
+    knots: &mut [Knot],
+) {
+    if knots[0].row < 0 {
+        expand_map(head_map, Direction::Up);
+        expand_map(tail_map, Direction::Up);
+        for knot in knots.iter_mut() {
+            knot.row += 1
+        }
+    }
+
+    if knots[0].col < 0 {
+        expand_map(head_map, Direction::Left);
+        expand_map(tail_map, Direction::Left);
+        for knot in knots.iter_mut() {
+            knot.col += 1
+        }
+    }
+
+    if knots[0].row >= head_map.len() as i32 {
+        expand_map(head_map, Direction::Down);
+        expand_map(tail_map, Direction::Down);
+    }
+
+    if knots[0].col >= head_map[0].len() as i32 {
+        expand_map(head_map, Direction::Right);
+        expand_map(tail_map, Direction::Right);
+    }
 }
 
 fn count_marked(map: &[Vec<char>]) -> i32 {
@@ -151,51 +180,43 @@ fn count_marked(map: &[Vec<char>]) -> i32 {
         .sum()
 }
 
-fn update_tail_cords(head_row: &i32, head_col: &i32, tail_row: &mut i32, tail_col: &mut i32) {
-    let square_dist = (*tail_row - *head_row).pow(2) + (*tail_col - *head_col).pow(2);
+fn update_tail_cords_new(knot1: Knot, knot2: &mut Knot) {
+    let square_dist = (knot2.row - knot1.row).pow(2) + (knot2.col - knot1.col).pow(2);
     let dist = (square_dist as f32).powf(1. / 2.);
 
-    if dist < 1. {
+    if dist <= SQRT_2 + 0.001 {
         return;
     }
 
-    // same row
-    if *tail_row == *head_row {
-        if *tail_col < *head_col {
-            *tail_col = *head_col - 1
-        } else {
-            *tail_col = *head_col + 1
-        }
+    let vector = (knot2.row - knot1.row, knot2.col - knot1.col);
+    let new_pos: (i32, i32) = match vector {
+        (0, 2) => (0, 1),
+        (0, -2) => (0, -1),
+        (-2, 0) => (-1, 0),
+        (2, 0) => (1, 0),
 
-        return;
-    }
+        (2, 2) => (1, 1),
+        (2, -2) => (1, -1),
+        (-2, 2) => (-1, 1),
+        (-2, -2) => (-1, -1),
 
-    // same column
-    if *tail_col == *head_col {
-        if *tail_row < *head_row {
-            *tail_row = *head_row - 1
-        } else {
-            *tail_row = *head_row + 1
-        }
+        (2, 1) => (1, 0),
+        (2, -1) => (1, 0),
+        (-2, 1) => (-1, 0),
+        (-2, -1) => (-1, 0),
 
-        return;
-    }
+        (1, 2) => (0, 1),
+        (1, -2) => (0, -1),
+        (-1, 2) => (0, 1),
+        (-1, -2) => (0, -1),
+        _ => panic!()
+    };
 
-    if *tail_row - 2 == *head_row {
-        *tail_row = *head_row + 1;
-        *tail_col = *head_col;
-    } else if *tail_row + 2 == *head_row {
-        *tail_row = *head_row - 1;
-        *tail_col = *head_col;
-    } else if *tail_col - 2 == *head_col {
-        *tail_row = *head_row;
-        *tail_col = *head_col + 1;
-    } else if *tail_col + 2 == *head_col {
-        *tail_row = *head_row;
-        *tail_col = *head_col - 1;
-    }
+    knot2.row = knot1.row + new_pos.0;
+    knot2.col = knot1.col + new_pos.1;
 }
 
+#[allow(dead_code)]
 fn print(array2d: &[Vec<char>]) {
     for row in array2d.iter() {
         let row_str = row
