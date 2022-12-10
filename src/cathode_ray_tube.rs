@@ -58,10 +58,16 @@ pub fn cathode_ray_tube_part_1(file_name: &str) -> i32 {
     let mut curr_instruction_progress = 0_usize;
     let mut update_value = 0_i32;
 
+    let mut crt_pos = 0_usize;
+    let mut sprite_pos = 1_i32;
+
     let mut input_iterator = read_input(file_name);
 
     loop {
-        registry += update_value;
+        if update_value != 0 {
+            registry += update_value;
+            sprite_pos += update_value;
+        }
         update_value = 0;
 
         match curr_instruction {
@@ -88,20 +94,24 @@ pub fn cathode_ray_tube_part_1(file_name: &str) -> i32 {
             }
         }
 
-        // print!("{clock:3} registry value: {registry}\t\t progress: {curr_instruction_progress}");
         if (clock + 20) % 40 == 0 {
             result.push(clock as i32 * registry);
-            // print!("\t\t cycle number: {clock}");
         }
-        // println!();
+
+        if (sprite_pos - 1..=sprite_pos + 1).contains(&(crt_pos as i32)) {
+            print!("#");
+        } else {
+            print!(".");
+        }
+
+        if clock % 40 == 0 {
+            println!()
+        }
 
         clock += 1;
+        crt_pos = (crt_pos + 1) % 40;
     }
     println!("{:?}", result);
 
     result.iter().take(6).sum()
-}
-
-pub fn cathode_ray_tube_part_2(file_name: &str) -> i32 {
-    todo!()
 }
