@@ -6,3 +6,4 @@ pub mod tuning_trouble;
 pub mod no_space_left_on_device;
 pub mod treetop_tree_house;
 pub mod rope_bridge;
+pub mod cathode_ray_tube;
