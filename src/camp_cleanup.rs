@@ -50,3 +50,26 @@ pub fn camp_cleanup_part_1(file_name: &str) -> i32 {
 
     counter
 }
+
+pub fn camp_cleanup_part_2(file_name: &str) -> i32 {
+    let mut counter = 0;
+    for (first, second) in read_input(file_name) {
+        // completely overlapping
+        if (first.0 <= second.0 && first.1 >= second.1) || (first.0 >= second.0 && first.1 <= second.1) {
+            counter += 1;
+            continue;
+        }
+
+        // partially overlapping
+        if (first.0 >= second.0 && first.0 <= second.1)
+            || (first.1 >= second.0 && first.1 <= second.1)
+            || (second.0 >= first.0 && second.0 <= first.1)
+            || (second.1 >= first.0 && second.1 <= first.1
+        ) {
+            counter += 1;
+            continue;
+        }
+    }
+
+    counter
+}
