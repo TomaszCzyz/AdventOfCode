@@ -129,6 +129,7 @@ pub fn rope_bridge_part_2(file_name: &str, knots_num: usize) -> i32 {
     count_marked(&tail_map)
 }
 
+#[allow(dead_code)]
 fn print_knots(knots: &[Knot], length: usize, width: usize) {
     let mut array = vec![vec!['.'; width]; length];
 

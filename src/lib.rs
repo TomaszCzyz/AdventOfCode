@@ -9,3 +9,4 @@ pub mod rope_bridge;
 pub mod cathode_ray_tube;
 pub mod monkey_in_the_middle;
 pub mod camp_cleanup;
+pub mod hill_climbing_algorithm;
