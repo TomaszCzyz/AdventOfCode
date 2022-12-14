@@ -10,3 +10,5 @@ pub mod cathode_ray_tube;
 pub mod monkey_in_the_middle;
 pub mod camp_cleanup;
 pub mod hill_climbing_algorithm;
+pub mod distress_signal_obsolete;
+pub mod distress_signal;
