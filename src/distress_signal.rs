@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 use std::cmp::Ordering;
-use std::fmt::Debug;
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader, Write};
@@ -10,10 +10,25 @@ use std::io::{BufRead, BufReader, Write};
 use itertools::{EitherOrBoth, Itertools};
 use ptree::{print_tree, Style, TreeItem};
 
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 struct Node {
     value: Option<u32>,
     children: Vec<Node>,
+}
+
+impl Debug for Node {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let text = match self.value {
+            None => "E".to_string(),
+            Some(val) => val.to_string()
+        };
+
+        if self.children.is_empty() {
+            write!(f, "{} ", text)
+        } else {
+            write!(f, "{} {:?}", text, self.children)
+        }
+    }
 }
 
 impl PartialEq for Node {
@@ -203,4 +218,60 @@ pub fn distress_signal_part_1(file_name: &str) -> usize {
     }
 
     indices_sum
+}
+
+pub fn distress_signal_part_2(file_name: &str) -> usize {
+    let mut input = read_input(file_name);
+    let mut indices_product = 1;
+
+    let (node_1, node_2) = create_extra_nodes();
+    input.push((node_1.clone(), node_2.clone()));
+
+    let sorted = input.into_iter()
+        .flat_map(|(node_l, node_r)| [node_l, node_r])
+        .sorted_by(compare)
+        .collect::<Vec<_>>();
+
+    for (index, node) in sorted.iter().enumerate() {
+        if *node == node_1 {
+            indices_product *= (index + 1);
+        }
+        if *node == node_2 {
+            indices_product *= (index + 1);
+        }
+        println!("{:?}", node);
+    }
+
+    indices_product
+}
+
+fn create_extra_nodes() -> (Node, Node) {
+    (Node {
+        value: None,
+        children: vec![
+            Node {
+                value: None,
+                children: vec![
+                    Node {
+                        value: Some(2),
+                        children: vec![],
+                    }
+                ],
+            }
+        ],
+    },
+     Node {
+         value: None,
+         children: vec![
+             Node {
+                 value: None,
+                 children: vec![
+                     Node {
+                         value: Some(6),
+                         children: vec![],
+                     }
+                 ],
+             }
+         ],
+     })
 }
