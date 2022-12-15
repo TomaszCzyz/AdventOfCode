@@ -12,3 +12,4 @@ pub mod camp_cleanup;
 pub mod hill_climbing_algorithm;
 pub mod distress_signal_obsolete;
 pub mod distress_signal;
+pub mod beacon_exclusion_zone;
