@@ -6,22 +6,19 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::io;
 use std::io::{BufRead, BufReader, Write};
-use std::ops::Add;
-use itertools::{EitherOrBoth, Itertools};
 
+use itertools::{EitherOrBoth, Itertools};
 use ptree::{print_tree, Style, TreeItem};
-use uuid::Uuid;
 
 #[derive(Clone, Debug)]
 struct Node {
-    id: Uuid,
     value: Option<u32>,
     children: Vec<Node>,
 }
 
 impl PartialEq for Node {
     fn eq(&self, other: &Self) -> bool {
-        self.id == other.id && self.value == other.value && self.children == other.children
+        self.value == other.value && self.children == other.children
     }
 }
 
@@ -30,8 +27,8 @@ impl TreeItem for Node {
 
     fn write_self<W: Write>(&self, f: &mut W, style: &Style) -> io::Result<()> {
         let text = match self.value {
-            None => "E".to_string().add("\t\t#").add(&self.id.to_string()[..3]),
-            Some(val) => val.to_string().add("\t\t#").add(&self.id.to_string()[..3]),
+            None => "E".to_string(),
+            Some(val) => val.to_string(),
         };
         write!(f, "{}", style.paint(text))
     }
@@ -118,7 +115,6 @@ fn my_split(line: &str) -> Vec<&str> {
 
 fn parse_tree(line: &str) -> Node {
     let mut parent = Node {
-        id: Uuid::new_v4(),
         value: None,
         children: vec![],
     };
@@ -131,7 +127,7 @@ fn parse_tree(line: &str) -> Node {
             parent.children.push(node);
         } else if !part.is_empty() {
             let num = part.parse::<u32>().unwrap();
-            let node = Node { id: Uuid::new_v4(), value: Option::from(num), children: vec![] };
+            let node = Node { value: Option::from(num), children: vec![] };
 
             parent.children.push(node);
         }
@@ -165,13 +161,11 @@ fn compare(curr_l: &Node, curr_r: &Node) -> Ordering {
         }
         (None, Some(val_r)) => {
             let node_copy = Node {
-                id: Default::default(),
                 value: Some(val_r),
                 children: vec![],
             };
 
             let extended_child = Node {
-                id: Default::default(),
                 value: None,
                 children: vec![node_copy],
             };
@@ -180,13 +174,11 @@ fn compare(curr_l: &Node, curr_r: &Node) -> Ordering {
         }
         (Some(val_l), None) => {
             let node_copy = Node {
-                id: Default::default(),
                 value: Some(val_l),
                 children: vec![],
             };
 
             let extended_child = Node {
-                id: Uuid::new_v4(),
                 value: None,
                 children: vec![node_copy],
             };
