@@ -234,10 +234,10 @@ pub fn distress_signal_part_2(file_name: &str) -> usize {
 
     for (index, node) in sorted.iter().enumerate() {
         if *node == node_1 {
-            indices_product *= (index + 1);
+            indices_product *= index + 1;
         }
         if *node == node_2 {
-            indices_product *= (index + 1);
+            indices_product *= index + 1;
         }
         println!("{:?}", node);
     }
