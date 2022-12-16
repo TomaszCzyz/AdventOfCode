@@ -154,15 +154,9 @@ pub fn beacon_exclusion_zone_part_2(file_name: &str, square_width: i32) -> u64 {
         }
 
         for (center, radius) in circles.iter() {
-            if curr_point.distance(center) <= *radius { // in circle
+            if curr_point.distance(center) <= *radius {
                 // jump to edge of circle in the same row
-                // curr_point.x =
-                let dist_from_center = (curr_point.y - center.y).abs();
-                let new_x = center.x + *radius as i32 - dist_from_center;
-
-                // print!("we are in the circle with center {:?} (r={}) \t\t", center, radius);
-                // println!("jump ({}->{}, {})", curr_point.x, new_x, curr_point.y);
-                curr_point.x = new_x;
+                curr_point.x = center.x + *radius as i32 - (curr_point.y - center.y).abs();
                 continue 'outer;
             }
         }
@@ -173,7 +167,7 @@ pub fn beacon_exclusion_zone_part_2(file_name: &str, square_width: i32) -> u64 {
         assert!(curr_point.y >= 0);
 
         tuning_frequency = curr_point.x as u64 * 4000000 + curr_point.y as u64;
-        break 'outer
+        break 'outer;
     }
     println!();
 
