@@ -66,15 +66,6 @@ fn read_input(file_name: &str) -> (Sensors, Beacons) {
     (sensors, beacons)
 }
 
-fn find_edges(points: Vec<Point>) -> (Point, Point) {
-    let x_min = points.iter().map(|p| p.x).min().unwrap();
-    let x_max = points.iter().map(|p| p.x).max().unwrap();
-    let y_min = points.iter().map(|p| p.y).min().unwrap();
-    let y_max = points.iter().map(|p| p.y).max().unwrap();
-
-    (Point { x: x_min, y: y_min }, Point { x: x_max, y: y_max })
-}
-
 fn find_edges_of_circles(circles: &Vec<(Point, usize)>) -> (i32, i32) {
     let mut x_min = i32::MAX;
     let mut x_max = i32::MIN;
@@ -107,18 +98,13 @@ fn calculate_radiuses(centers: &[Point], edge_points: &[Point]) -> Vec<(Point, u
 
 pub fn beacon_exclusion_zone_part_1(file_name: &str, row_number: i32) -> i32 {
     let (sensors, beacons) = read_input(file_name);
-    let union = [sensors.clone(), beacons.clone()].concat();
 
     let circles = calculate_radiuses(&sensors, &beacons);
     println!("{sensors:?}");
     println!("{beacons:?}");
 
-    // let (left_top, right_bottom): (Point, Point) = find_edges(union);
-    // println!("left top: {:?}\t\t right bottom: {:?}", left_top, right_bottom);
     let (x_min, x_max) = find_edges_of_circles(&circles);
     println!("x_min: {}\t\t x_max: {}", x_min, x_max);
-
-    // let circles =
 
     let mut sum = 0;
 
@@ -147,4 +133,49 @@ pub fn beacon_exclusion_zone_part_1(file_name: &str, row_number: i32) -> i32 {
     println!();
 
     sum
+}
+
+pub fn beacon_exclusion_zone_part_2(file_name: &str, square_width: i32) -> u64 {
+    let (sensors, beacons) = read_input(file_name);
+
+    let circles = calculate_radiuses(&sensors, &beacons);
+
+    let mut tuning_frequency = 0_u64;
+    let mut curr_point = Point { x: 0, y: 0 };
+
+    let total = square_width as u64 * square_width as u64;
+
+    'outer: for _ in 0..=total {
+        if curr_point.x > square_width {
+            curr_point.x = 0;
+            curr_point.y += 1;
+        } else {
+            curr_point.x += 1;
+        }
+
+        for (center, radius) in circles.iter() {
+            if curr_point.distance(center) <= *radius { // in circle
+                // jump to edge of circle in the same row
+                // curr_point.x =
+                let dist_from_center = (curr_point.y - center.y).abs();
+                let new_x = center.x + *radius as i32 - dist_from_center;
+
+                // print!("we are in the circle with center {:?} (r={}) \t\t", center, radius);
+                // println!("jump ({}->{}, {})", curr_point.x, new_x, curr_point.y);
+                curr_point.x = new_x;
+                continue 'outer;
+            }
+        }
+
+        println!("not in circle: {:?}", curr_point);
+
+        assert!(curr_point.x >= 0);
+        assert!(curr_point.y >= 0);
+
+        tuning_frequency = curr_point.x as u64 * 4000000 + curr_point.y as u64;
+        break 'outer
+    }
+    println!();
+
+    tuning_frequency
 }
