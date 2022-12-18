@@ -106,34 +106,37 @@ fn make_complete_graph(input_graph: &AdjGraph, rates: &ValveRates) -> (MatGraph,
     (matrix, name_to_index_mappings)
 }
 
-/// 1. find all reachable nodes (dist+1 is lower then minute_left)
 fn bfs(
     graph: &MatGraph,
     starting_node: usize,
-    current_node: usize,
-    minutes_left: u32,
-    opened_valves: Vec<(usize, u32)>, // valve_index -> minute_of_opening
-    pressure_released: u32,
-    mappings: &HashMap<String, usize>,
-    rates: &ValveRates,
+    my_minutes_left: u32,
+    my_opened_valves: Vec<(usize, u32)>,
+    rates: &HashMap<usize, u32>,
 ) -> Option<u32> {
     let mut can_go_anywhere = false;
     let mut inner_results = Vec::new();
+    let (my_current_node, _my_last_minute) = my_opened_valves.last().unwrap();
 
-    for (neighbor_index, dist) in graph[current_node].iter().enumerate() {
+    for (neighbor_index, dist) in graph[*my_current_node].iter().enumerate() {
         if neighbor_index == starting_node
-            || *dist + 1 > minutes_left
-            || opened_valves.iter().map(|(idx, minute)| idx).contains(&neighbor_index) {
+            || neighbor_index == *my_current_node
+            || *dist + 1 > my_minutes_left
+            || my_opened_valves.iter().map(|(idx, _)| idx).contains(&neighbor_index) {
             continue;
         }
         can_go_anywhere = true;
 
-        let new_minutes_left = minutes_left - dist - 1;
-        let mut new_opened_valves = opened_valves.clone();
+        let new_minutes_left = my_minutes_left - dist - 1;
+        let mut new_opened_valves = my_opened_valves.clone();
 
         new_opened_valves.push((neighbor_index, 30 - new_minutes_left));
 
-        let result = bfs(graph, starting_node, neighbor_index, new_minutes_left, new_opened_valves, pressure_released, mappings, rates);
+        let result = bfs(
+            graph,
+            starting_node,
+            new_minutes_left,
+            new_opened_valves,
+            rates);
 
         if let Some(pressure) = result {
             inner_results.push(pressure)
@@ -141,17 +144,11 @@ fn bfs(
     }
 
     if !can_go_anywhere {
-        print!("opened valves: {:?} \t", opened_valves.iter()
-            .map(|(idx, minute)| (find_key_for_value(mappings, *idx), minute))
-            .collect::<Vec<_>>());
-
         let mut sum = 0;
-        for (valve_index, minute) in opened_valves.iter() {
-            let name = find_key_for_value(mappings, *valve_index);
-            let valve_rate = rates[&name];
+        for (valve_index, minute) in my_opened_valves.iter() {
+            let valve_rate = rates[valve_index];
             sum += valve_rate * (30 - minute);
         }
-        println!("total pressure: {}", sum);
 
         return Some(sum);
     }
@@ -159,8 +156,11 @@ fn bfs(
     Some(*inner_results.iter().max().unwrap())
 }
 
-fn find_key_for_value(map: &HashMap<String, usize>, value: usize) -> String {
-    map.iter().find_map(|(key, &val)| if val == value { Some(key.clone()) } else { None }).unwrap()
+fn translate(rates: &ValveRates, mappings: &HashMap<String, usize>) -> HashMap<usize, u32> {
+    rates.iter()
+        .filter(|&(name, _)| mappings.contains_key(name))
+        .map(|(name, rate)| (mappings[name], *rate))
+        .collect::<HashMap<_, _>>()
 }
 
 pub fn proboscidea_volcanium_part_1(file_name: &str) -> u32 {
@@ -170,8 +170,14 @@ pub fn proboscidea_volcanium_part_1(file_name: &str) -> u32 {
     print(&complete_graph, &mappings);
 
     let start = mappings.get("AA").unwrap();
+    let rates_translated: HashMap<usize, u32> = translate(&valve_rates, &mappings);
 
-    let r = bfs(&complete_graph, *start, *start, 30, Vec::new(), 0, &mappings, &valve_rates);
+    let r = bfs(
+        &complete_graph,
+        *start,
+        30,
+        vec![(*start, 30)],
+        &rates_translated);
 
     r.unwrap()
 }
