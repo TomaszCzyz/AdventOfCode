@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
+use std::iter;
 
 use itertools::Itertools;
 
@@ -127,9 +128,10 @@ fn bfs(
         can_go_anywhere = true;
 
         let new_minutes_left = my_minutes_left - dist - 1;
-        let mut new_opened_valves = my_opened_valves.clone();
-
-        new_opened_valves.push((neighbor_index, 30 - new_minutes_left));
+        let new_opened_valves = my_opened_valves.clone()
+            .into_iter()
+            .chain(iter::once((neighbor_index, 30 - new_minutes_left)))
+            .collect::<Vec<_>>();
 
         let result = bfs(
             graph,
