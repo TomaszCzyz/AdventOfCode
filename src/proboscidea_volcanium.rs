@@ -107,6 +107,7 @@ fn make_complete_graph(input_graph: &AdjGraph, rates: &ValveRates) -> (MatGraph,
     (matrix, name_to_index_mappings)
 }
 
+#[allow(dead_code)]
 fn bfs(
     graph: &MatGraph,
     starting_node: usize,
@@ -158,11 +159,58 @@ fn bfs(
     Some(*inner_results.iter().max().unwrap())
 }
 
-fn translate(rates: &ValveRates, mappings: &HashMap<String, usize>) -> HashMap<usize, u32> {
-    rates.iter()
-        .filter(|&(name, _)| mappings.contains_key(name))
-        .map(|(name, rate)| (mappings[name], *rate))
-        .collect::<HashMap<_, _>>()
+fn traverse(
+    graph: &MatGraph,
+    minutes_left: u32,
+    mut opened_valves: Vec<(usize, u32)>,
+    rates: &HashMap<usize, u32>,
+) -> Option<u32> {
+    let mut inner_results = Vec::new();
+    let (current_node, _my_last_minute) = opened_valves.last().unwrap();
+
+    let mut possible_destinations = Vec::new();
+    for (neighbor_index, dist) in graph[*current_node].iter().enumerate() {
+        if neighbor_index == *current_node
+            || *dist + 1 > minutes_left
+            || opened_valves.iter().map(|(idx, _)| idx).contains(&neighbor_index) {
+            continue;
+        }
+        possible_destinations.push((neighbor_index, dist));
+    }
+    if !possible_destinations.is_empty() { // select best destination
+        possible_destinations.sort_by(|(node1, dist1), (node2, dist2)| {
+            ((minutes_left - *dist1 - 1) * rates[node1]).cmp(&((minutes_left - *dist2 - 1) * rates[node2]))
+        });
+
+        print!("possible destination:\t");
+        for dest in possible_destinations.iter() {
+            print!("{:?} /{}/  ", dest, (minutes_left - dest.1 - 1) * rates[&dest.0])
+        }
+        println!();
+
+        let (next_node_index, next_node_dist) = *possible_destinations.last().unwrap();
+        let minutes_after = minutes_left - *next_node_dist - 1;
+
+        opened_valves.push((next_node_index, minutes_after));
+
+        let result = traverse(graph, minutes_after, opened_valves, rates);
+
+        if let Some(pressure) = result {
+            inner_results.push(pressure)
+        }
+    } else {
+        let mut sum = 0;
+        for (valve_index, minute) in opened_valves.iter() {
+            let valve_rate = rates[valve_index];
+            sum += valve_rate * (30 - minute);
+        }
+
+        println!("opened valves: {:?}", opened_valves);
+
+        return Some(sum);
+    }
+
+    Some(*inner_results.iter().max().unwrap())
 }
 
 pub fn proboscidea_volcanium_part_1(file_name: &str) -> u32 {
@@ -174,15 +222,40 @@ pub fn proboscidea_volcanium_part_1(file_name: &str) -> u32 {
     let start = mappings.get("AA").unwrap();
     let rates_translated: HashMap<usize, u32> = translate(&valve_rates, &mappings);
 
-    let r = bfs(
+    let r = traverse(
         &complete_graph,
-        *start,
         30,
         vec![(*start, 30)],
         &rates_translated);
 
     r.unwrap()
 }
+
+fn translate(rates: &ValveRates, mappings: &HashMap<String, usize>) -> HashMap<usize, u32> {
+    rates.iter()
+        .filter(|&(name, _)| mappings.contains_key(name))
+        .map(|(name, rate)| (mappings[name], *rate))
+        .collect::<HashMap<_, _>>()
+}
+
+// pub fn proboscidea_volcanium_part_1(file_name: &str) -> u32 {
+//     let (input_graph, valve_rates) = read_input(file_name);
+//     let (complete_graph, mappings) = make_complete_graph(&input_graph, &valve_rates);
+//
+//     print(&complete_graph, &mappings);
+//
+//     let start = mappings.get("AA").unwrap();
+//     let rates_translated: HashMap<usize, u32> = translate(&valve_rates, &mappings);
+//
+//     let r = bfs(
+//         &complete_graph,
+//         *start,
+//         30,
+//         vec![(*start, 30)],
+//         &rates_translated);
+//
+//     r.unwrap()
+// }
 
 fn print(matrix: &MatGraph, name_mappings: &HashMap<String, usize>) {
     let pairs_in_order = name_mappings.iter()

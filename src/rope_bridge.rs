@@ -80,67 +80,7 @@ fn expand_map(map: &mut Vec<Vec<char>>, direction: Direction) {
     };
 }
 
-pub fn rope_bridge_part_1(file_name: &str) -> i32 {
-    rope_bridge_part_2(file_name, 2)
-}
-
-#[derive(Clone, Copy)]
-struct Knot {
-    row: i32,
-    col: i32,
-}
-
-pub fn rope_bridge_part_2(file_name: &str, knots_num: usize) -> i32 {
-    let initial_size = 2;
-    let half = (initial_size / 2) as i32;
-
-    let mut head_map = vec![vec!['.'; initial_size]; initial_size];
-    let mut tail_map = vec![vec!['.'; initial_size]; initial_size];
-
-    let mut knots = vec![Knot { row: half, col: half }; knots_num];
-
-    for (direction, dist) in read_input(file_name) {
-        for _ in 0..dist {
-            match direction {
-                Direction::Left => knots[0].row -= 1,
-                Direction::Right => knots[0].row += 1,
-                Direction::Up => knots[0].col += 1,
-                Direction::Down => knots[0].col -= 1,
-            };
-
-            extend_maps_id_needed(&mut head_map, &mut tail_map, &mut knots);
-
-            for i in 0..knots.len() - 1 {
-                let first = knots[i];
-                let second = knots[i + 1].borrow_mut();
-                update_tail_cords_new(first, second);
-            }
-
-            head_map[knots[0].row as usize][knots[0].col as usize] = '$';
-            tail_map[knots.last().unwrap().row as usize][knots.last().unwrap().col as usize] = '#';
-
-            // print_knots(&knots, head_map.len(), head_map[0].len());
-        }
-    }
-
-    print(&head_map);
-    print(&tail_map);
-
-    count_marked(&tail_map)
-}
-
-#[allow(dead_code)]
-fn print_knots(knots: &[Knot], length: usize, width: usize) {
-    let mut array = vec![vec!['.'; width]; length];
-
-    for (i, knot) in knots.iter().enumerate() {
-        array[knot.row as usize][knot.col as usize] = format!("{i}").parse().unwrap();
-    }
-
-    print(&array);
-}
-
-fn extend_maps_id_needed(
+fn extend_maps_if_needed(
     head_map: &mut Vec<Vec<char>>,
     tail_map: &mut Vec<Vec<char>>,
     knots: &mut [Knot],
@@ -172,13 +112,10 @@ fn extend_maps_id_needed(
     }
 }
 
-fn count_marked(map: &[Vec<char>]) -> i32 {
-    map.iter()
-        .map(|row| row.iter()
-            .filter(|&char| *char == '#')
-            .map(|_| 1)
-            .sum::<i32>())
-        .sum()
+#[derive(Clone, Copy)]
+struct Knot {
+    row: i32,
+    col: i32,
 }
 
 fn update_tail_cords_new(knot1: Knot, knot2: &mut Knot) {
@@ -215,6 +152,69 @@ fn update_tail_cords_new(knot1: Knot, knot2: &mut Knot) {
 
     knot2.row = knot1.row + new_pos.0;
     knot2.col = knot1.col + new_pos.1;
+}
+
+fn count_marked(map: &[Vec<char>]) -> i32 {
+    map.iter()
+        .map(|row| row.iter()
+            .filter(|&char| *char == '#')
+            .map(|_| 1)
+            .sum::<i32>())
+        .sum()
+}
+
+pub fn rope_bridge_part_1(file_name: &str) -> i32 {
+    rope_bridge_part_2(file_name, 2)
+}
+
+pub fn rope_bridge_part_2(file_name: &str, knots_num: usize) -> i32 {
+    let initial_size = 2;
+    let half = (initial_size / 2) as i32;
+
+    let mut head_map = vec![vec!['.'; initial_size]; initial_size];
+    let mut tail_map = vec![vec!['.'; initial_size]; initial_size];
+
+    let mut knots = vec![Knot { row: half, col: half }; knots_num];
+
+    for (direction, dist) in read_input(file_name) {
+        for _ in 0..dist {
+            match direction {
+                Direction::Left => knots[0].row -= 1,
+                Direction::Right => knots[0].row += 1,
+                Direction::Up => knots[0].col += 1,
+                Direction::Down => knots[0].col -= 1,
+            };
+
+            extend_maps_if_needed(&mut head_map, &mut tail_map, &mut knots);
+
+            for i in 0..knots.len() - 1 {
+                let first = knots[i];
+                let second = knots[i + 1].borrow_mut();
+                update_tail_cords_new(first, second);
+            }
+
+            head_map[knots[0].row as usize][knots[0].col as usize] = '$';
+            tail_map[knots.last().unwrap().row as usize][knots.last().unwrap().col as usize] = '#';
+
+            // print_knots(&knots, head_map.len(), head_map[0].len());
+        }
+    }
+
+    print(&head_map);
+    print(&tail_map);
+
+    count_marked(&tail_map)
+}
+
+#[allow(dead_code)]
+fn print_knots(knots: &[Knot], length: usize, width: usize) {
+    let mut array = vec![vec!['.'; width]; length];
+
+    for (i, knot) in knots.iter().enumerate() {
+        array[knot.row as usize][knot.col as usize] = format!("{i}").parse().unwrap();
+    }
+
+    print(&array);
 }
 
 #[allow(dead_code)]

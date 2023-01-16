@@ -14,3 +14,4 @@ pub mod distress_signal_obsolete;
 pub mod distress_signal;
 pub mod beacon_exclusion_zone;
 pub mod proboscidea_volcanium;
+pub mod regolith_reservoir;
