@@ -1,5 +1,3 @@
-extern crate core;
-
 pub mod rock_paper_scissors;
 pub mod calorie_counting;
 pub mod rucksack_reorganization;
@@ -17,3 +15,4 @@ pub mod distress_signal;
 pub mod beacon_exclusion_zone;
 pub mod proboscidea_volcanium;
 pub mod regolith_reservoir;
+pub mod pyroclastic_flow;

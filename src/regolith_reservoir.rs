@@ -1,7 +1,6 @@
 use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use std::panic::catch_unwind;
 
 use itertools::{Itertools, MinMaxResult};
 
