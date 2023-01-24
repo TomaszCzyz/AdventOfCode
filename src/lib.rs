@@ -16,3 +16,4 @@ pub mod beacon_exclusion_zone;
 pub mod proboscidea_volcanium;
 pub mod regolith_reservoir;
 pub mod pyroclastic_flow;
+pub mod boiling_boulders;
