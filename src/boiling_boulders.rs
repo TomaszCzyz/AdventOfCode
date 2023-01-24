@@ -49,11 +49,7 @@ pub fn boiling_boulders_part_1(file_name: &str) -> usize {
 
     for p in points.iter() {
         xy_to_z_map.entry((p.x, p.y)).or_insert_with(Vec::new).push(p.z);
-    }
-    for p in points.iter() {
         xz_to_y_map.entry((p.x, p.z)).or_insert_with(Vec::new).push(p.y);
-    }
-    for p in points.iter() {
         yz_to_x_map.entry((p.y, p.z)).or_insert_with(Vec::new).push(p.x);
     }
 
@@ -83,4 +79,8 @@ pub fn boiling_boulders_part_1(file_name: &str) -> usize {
     }
 
     visible_sides
+}
+
+pub fn boiling_boulders_part_2(file_name: &str) -> usize {
+    0
 }
