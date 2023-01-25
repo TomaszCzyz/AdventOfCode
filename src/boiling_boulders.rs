@@ -53,48 +53,14 @@ fn initialize_mappings(points: Vec<Point>) -> [HashMap<(u32, u32), Vec<u32>>; 3]
     [xy_to_z_map, xz_to_y_map, yz_to_x_map]
 }
 
-pub fn boiling_boulders_part_1(file_name: &str) -> usize {
-    let points = read_input(file_name);
-    let mappings = initialize_mappings(points);
-
-    let mut visible_sides = 0_usize;
-    for map in mappings.iter() {
-        let mut visible_sides_per_plane = 0_usize;
-        for (coords, cubes_indexes) in map.iter() {
-            let mut indexes = cubes_indexes.clone();
-            indexes.sort();
-
-            println!("{:?}: {:?}", coords, indexes);
-
-            let mut visible_counter = 2_usize;
-
-            if indexes.len() != 1 {
-                for consecutive_indexes in indexes.windows(2) {
-                    if consecutive_indexes[1] != consecutive_indexes[0] + 1 {
-                        visible_counter += 2;
-                    }
-                }
-            }
-
-            visible_sides_per_plane += visible_counter;
-        }
-
-        println!("visible sides {:?}", visible_sides_per_plane);
-        visible_sides += visible_sides_per_plane;
-    }
-
-    visible_sides
-}
-
-pub fn boiling_boulders_part_2(file_name: &str) -> usize {
-    let points = read_input(file_name);
-    let mappings = initialize_mappings(points);
-
+fn calculate_sides_and_gaps(mappings: [HashMap<(u32, u32), Vec<u32>>; 3]) -> (usize, Vec<HashSet<Point>>) {
     let mut visible_sides = 0_usize;
     let mut gaps = Vec::new();
     for (plane_number, map) in mappings.iter().enumerate() {
         let mut visible_sides_per_plane = 0_usize;
         let mut gaps_per_plane = HashSet::new();
+
+        print_plane(map);
 
         for (coords, cubes_indexes) in map.iter() {
             let mut indexes = cubes_indexes.clone();
@@ -104,10 +70,9 @@ pub fn boiling_boulders_part_2(file_name: &str) -> usize {
 
             let mut visible_counter = 2_usize;
             for consecutive_indexes in indexes.windows(2) {
-                let first = consecutive_indexes[0];
-                let second = consecutive_indexes[1];
+                let (first, second) = (consecutive_indexes[0], consecutive_indexes[1]);
 
-                if second == first + 1 {
+                if second - first == 1 {
                     continue;
                 }
 
@@ -126,22 +91,66 @@ pub fn boiling_boulders_part_2(file_name: &str) -> usize {
             visible_sides_per_plane += visible_counter;
         }
 
-        println!("gaps {:?}", gaps_per_plane);
-        println!("visible sides {:?}", visible_sides_per_plane);
+        println!("gaps_per_plane {:?}", gaps_per_plane);
+        println!("sides per plane {:?}", visible_sides_per_plane);
 
         visible_sides += visible_sides_per_plane;
         gaps.push(gaps_per_plane);
     }
+    (visible_sides, gaps)
+}
+
+fn print_plane(plane: &HashMap<(u32, u32), Vec<u32>>) {
+    let layers_number = *plane.values().flatten().max().unwrap();
+
+    let max_i = *plane.keys().map(|(i, _j)| i).max().unwrap();
+    let max_j = *plane.keys().map(|(_i, j)| j).max().unwrap();
+
+    for layer_number in 1..=layers_number {
+        for i in 1..=max_i {
+            for j in 1..=max_j {
+                if plane.contains_key(&(i, j)) && plane.get(&(i,j)).unwrap().contains(&layer_number) {
+                    print!("#")
+                } else {
+                    print!(" ")
+                }
+            }
+            println!()
+        }
+        println!("{}", "-".repeat(max_j as usize))
+    }
+}
+
+pub fn boiling_boulders_part_1(file_name: &str) -> usize {
+    let points = read_input(file_name);
+    let mappings = initialize_mappings(points);
+
+    // todo! exclude "false" gaps,
+    // i.e. empty spaces that are limited from each direction, but can be reached from outside
+    let (total_sides, _gaps) = calculate_sides_and_gaps(mappings);
+    total_sides
+}
+
+pub fn boiling_boulders_part_2(file_name: &str) -> usize {
+    let points = read_input(file_name);
+    let mappings = initialize_mappings(points);
+
+    let (total_sides, gaps) = calculate_sides_and_gaps(mappings);
+
+    println!("total sides: {total_sides:?}");
 
     let gaps_intersection = gaps.iter()
         .skip(1)
-        .fold(HashSet::from_iter(gaps[0].clone()), |acc, set| &acc & set);
+        .fold(HashSet::from_iter(gaps[0].clone()), |acc, set| &acc & set)
+        .into_iter()
+        .collect::<Vec<_>>();
 
     println!("gaps_intersection {gaps_intersection:?}");
 
-    // find all distinct droplets
-    // do part_1 of the solution for each
-    // subtract results from initial sum
+    let gaps_mappings = initialize_mappings(gaps_intersection);
+    let (gaps_sides, _) = calculate_sides_and_gaps(gaps_mappings);
 
-    visible_sides
+    println!("sides for gaps mappings: {:?}", gaps_sides);
+
+    total_sides - gaps_sides
 }
