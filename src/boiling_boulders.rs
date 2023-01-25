@@ -40,7 +40,7 @@ fn read_input(file_name: &str) -> Vec<Point> {
     points
 }
 
-fn initialize_mappings(points: Vec<Point>) -> [HashMap<(u32, u32), Vec<u32>>; 3] {
+fn initialize_mappings(points: &[Point]) -> [HashMap<(u32, u32), Vec<u32>>; 3] {
     let mut xy_to_z_map: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
     let mut xz_to_y_map: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
     let mut yz_to_x_map: HashMap<(u32, u32), Vec<u32>> = HashMap::new();
@@ -53,7 +53,7 @@ fn initialize_mappings(points: Vec<Point>) -> [HashMap<(u32, u32), Vec<u32>>; 3]
     [xy_to_z_map, xz_to_y_map, yz_to_x_map]
 }
 
-fn calculate_sides_and_gaps(mappings: [HashMap<(u32, u32), Vec<u32>>; 3]) -> (usize, Vec<HashSet<Point>>) {
+fn calculate_sides_and_gaps(mappings: &[HashMap<(u32, u32), Vec<u32>>; 3]) -> (usize, Vec<HashSet<Point>>) {
     let mut visible_sides = 0_usize;
     let mut gaps = Vec::new();
     for (plane_number, map) in mappings.iter().enumerate() {
@@ -101,15 +101,15 @@ fn calculate_sides_and_gaps(mappings: [HashMap<(u32, u32), Vec<u32>>; 3]) -> (us
 }
 
 fn print_plane(plane: &HashMap<(u32, u32), Vec<u32>>) {
-    let layers_number = *plane.values().flatten().max().unwrap();
+    let layers_number = *plane.values().flatten().max().unwrap_or(&0);
 
-    let max_i = *plane.keys().map(|(i, _j)| i).max().unwrap();
-    let max_j = *plane.keys().map(|(_i, j)| j).max().unwrap();
+    let max_i = *plane.keys().map(|(i, _j)| i).max().unwrap_or(&1);
+    let max_j = *plane.keys().map(|(_i, j)| j).max().unwrap_or(&1);
 
     for layer_number in 1..=layers_number {
         for i in 1..=max_i {
             for j in 1..=max_j {
-                if plane.contains_key(&(i, j)) && plane.get(&(i,j)).unwrap().contains(&layer_number) {
+                if plane.contains_key(&(i, j)) && plane.get(&(i, j)).unwrap().contains(&layer_number) {
                     print!("#")
                 } else {
                     print!(" ")
@@ -123,23 +123,21 @@ fn print_plane(plane: &HashMap<(u32, u32), Vec<u32>>) {
 
 pub fn boiling_boulders_part_1(file_name: &str) -> usize {
     let points = read_input(file_name);
-    let mappings = initialize_mappings(points);
+    let mappings = initialize_mappings(&points);
 
-    // todo! exclude "false" gaps,
-    // i.e. empty spaces that are limited from each direction, but can be reached from outside
-    let (total_sides, _gaps) = calculate_sides_and_gaps(mappings);
+    let (total_sides, _gaps) = calculate_sides_and_gaps(&mappings);
     total_sides
 }
 
 pub fn boiling_boulders_part_2(file_name: &str) -> usize {
     let points = read_input(file_name);
-    let mappings = initialize_mappings(points);
+    let mappings = initialize_mappings(&points);
 
-    let (total_sides, gaps) = calculate_sides_and_gaps(mappings);
+    let (total_sides, gaps) = calculate_sides_and_gaps(&mappings);
 
     println!("total sides: {total_sides:?}");
 
-    let gaps_intersection = gaps.iter()
+    let mut gaps_intersection = gaps.iter()
         .skip(1)
         .fold(HashSet::from_iter(gaps[0].clone()), |acc, set| &acc & set)
         .into_iter()
@@ -147,10 +145,49 @@ pub fn boiling_boulders_part_2(file_name: &str) -> usize {
 
     println!("gaps_intersection {gaps_intersection:?}");
 
-    let gaps_mappings = initialize_mappings(gaps_intersection);
-    let (gaps_sides, _) = calculate_sides_and_gaps(gaps_mappings);
+    remove_false_positive_gaps(&points, &mut gaps_intersection);
+
+    let gaps_mappings = initialize_mappings(&gaps_intersection);
+    let (gaps_sides, _) = calculate_sides_and_gaps(&gaps_mappings);
 
     println!("sides for gaps mappings: {:?}", gaps_sides);
 
     total_sides - gaps_sides
+}
+
+
+/// Each gap point must be adjacent to lava point or to other gap point
+/// # Arguments
+/// * `lava_mapping`:
+/// * `gaps_mapping`:
+/// returns: ()
+fn remove_false_positive_gaps(lava_points: &[Point], gaps_points: &mut Vec<Point>) {
+    let mut points_to_remove = Vec::new();
+
+    for gap_point in gaps_points.iter() {
+        let (x, y, z) = (gap_point.x, gap_point.y, gap_point.z);
+
+        let up = Point { x: gap_point.x + 1, y, z };
+        let down = Point { x: gap_point.x - 1, y, z };
+        let left = Point { x, y: gap_point.y + 1, z };
+        let right = Point { x, y: gap_point.y - 1, z };
+        let forward = Point { x, y, z: gap_point.z + 1 };
+        let backward = Point { x, y, z: gap_point.z - 1 };
+
+        let neighbor_points = [up, down, left, right, forward, backward];
+
+        for point in neighbor_points {
+            if lava_points.contains(&point) || gaps_points.contains(&point) {
+                continue;
+            }
+            points_to_remove.push(gap_point.clone());
+            break;
+        }
+    }
+
+    for p in points_to_remove.into_iter() {
+        println!("removing point {:?}", p);
+        let index = gaps_points.iter().position(|x| x == &p).unwrap();
+        gaps_points.swap_remove(index);
+    }
 }
