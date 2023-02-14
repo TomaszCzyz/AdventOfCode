@@ -1,10 +1,13 @@
+#![allow(dead_code)]
+
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
-use itertools::min;
 
 use strum::IntoEnumIterator;
 use strum_macros::{Display, EnumIter};
+
+const TOTAL_TIME: u32 = 24;
 
 #[derive(Copy, Clone, Debug, Display, EnumIter, Eq, PartialEq, Hash)]
 enum Mineral {
@@ -16,12 +19,12 @@ enum Mineral {
 
 type CostInfo = (Mineral, u32);
 
+
 #[derive(Debug)]
 struct Blueprint {
     id: usize,
     costs: HashMap<Mineral, Vec<CostInfo>>,
 }
-
 
 fn read_input(file_name: &str) -> Vec<Blueprint> {
     let file = File::open(file_name).unwrap();
@@ -73,6 +76,7 @@ fn read_input(file_name: &str) -> Vec<Blueprint> {
     blueprints
 }
 
+
 fn initialize_equipment() -> (HashMap<Mineral, u32>, HashMap<Mineral, u32>) {
     (
         HashMap::from([
@@ -89,7 +93,6 @@ fn initialize_equipment() -> (HashMap<Mineral, u32>, HashMap<Mineral, u32>) {
         ])
     )
 }
-
 
 /// returns: u32 - number of robots building
 fn build_robots(robot_type: &Mineral, minerals: &mut HashMap<Mineral, u32>, costs: &Blueprint) -> u32 {
@@ -122,55 +125,119 @@ fn mine_minerals(robots: &HashMap<Mineral, u32>, minerals: &mut HashMap<Mineral,
     }
 }
 
-const TOTAL_TIME: u32 = 24 + 1;
-
 /// round phases:
 /// 1. spending minerals for robots construction
 /// 1. mining minerals
 /// 1. finishing robots constructions
-pub fn not_enough_minerals_part_1(file_name: &str) -> usize {
+fn analyze_next_minute(
+    minute: u32,
+    robots: HashMap<Mineral, u32>,
+    minerals: HashMap<Mineral, u32>,
+    costs: &Blueprint,
+    history: Vec<(Option<Mineral>, u32)>,
+) -> u32 {
+    if minute == TOTAL_TIME {
+        println!("FINISHED");
+        for (mineral, min) in history {
+            match mineral {
+                // None => println!("minute {min} - do nothing"),
+                None => {}
+                Some(val) => println!("minute {min} - build {val} robot"),
+            }
+        }
+        print_equipment(&robots, &minerals);
+
+        return minerals[&Mineral::Geode];
+    }
+
+    if minute >= TOTAL_TIME - 7 && !history.iter().any(|(mineral, _)| mineral.is_some() && mineral.unwrap() == Mineral::Obsidian) {
+        return 0;
+    }
+
+    let mut allowed_minerals = vec![Mineral::Geode, Mineral::Obsidian, Mineral::Clay, Mineral::Ore];
+    for (mineral, min) in history.iter() {
+        if let Some(val) = mineral {
+            match val {
+                Mineral::Geode => {
+                    allowed_minerals = vec![Mineral::Obsidian];
+                }
+                Mineral::Obsidian => {
+                    allowed_minerals = vec![Mineral::Geode, Mineral::Obsidian, Mineral::Clay];
+                }
+                Mineral::Clay => {}
+                Mineral::Ore => {}
+            }
+        }
+    }
+
+    let mut answers = Vec::new();
+
+
+    // choice: try buy a robot
+    for mineral in allowed_minerals {
+        let robot_costs = &costs.costs[&mineral];
+        let mut is_affordable = true;
+
+        // check if there is enough minerals
+        for (mineral, cost) in robot_costs.iter() {
+            if minerals[mineral] < *cost {
+                is_affordable = false;
+                break;
+            }
+        }
+
+        if is_affordable {
+            let mut updated_history = history.clone();
+            let mut updated_minerals = minerals.clone();
+            let mut updated_robots = robots.clone();
+
+            updated_history.push((Some(mineral), minute));
+
+            // spend minerals to build a robot
+            for (mineral, cost) in robot_costs.iter() {
+                updated_minerals.entry(*mineral).and_modify(|qty| *qty -= cost);
+            }
+
+            // mine new minerals
+            mine_minerals(&updated_robots, &mut updated_minerals);
+
+            // finish construction of a new robot
+            updated_robots.entry(mineral).and_modify(|robots_number| *robots_number += 1);
+
+            let answer = analyze_next_minute(minute + 1, updated_robots, updated_minerals, costs, updated_history);
+            answers.push(answer);
+        }
+    }
+
+    // choice: do nothing
+    let mut updated_minerals = minerals;
+    let mut updated_history = history.clone();
+
+    updated_history.push((None, minute));
+
+
+    mine_minerals(&robots, &mut updated_minerals);
+
+    let answer = analyze_next_minute(minute + 1, robots.clone(), updated_minerals, costs, updated_history);
+    answers.push(answer);
+
+    *answers.iter().max().unwrap()
+}
+
+pub fn not_enough_minerals_part_1(file_name: &str) -> u32 {
     let costs = read_input(file_name);
-    let (mut robots, mut minerals) = initialize_equipment();
+    let (robots, minerals) = initialize_equipment();
 
     println!("{:#?}", costs);
 
-    let mut mining_time_spans: [(Mineral, u32, u32); 4] = [
-        (Mineral::Geode, 18, TOTAL_TIME),
-        (Mineral::Obsidian, 11, 16),
-        (Mineral::Clay, 1, 13),
-        (Mineral::Ore, 0, 1),
-    ];
-
-    for minute in 1..TOTAL_TIME {
-        println!("\n====MINUTE {minute}====");
-        print_equipment(&robots, &minerals);
-
-        let mut built_robots = HashMap::new();
-
-        for (mineral, begin, end) in mining_time_spans.iter() {
-            if *begin > minute || minute >= *end {
-                continue;
-            }
-
-            let built_robots_number = build_robots(mineral, &mut minerals, &costs[0]);
-            built_robots.insert(*mineral, built_robots_number);
-        }
-
-        mine_minerals(&robots, &mut minerals);
-
-        for (type_, qty) in built_robots.into_iter() {
-            robots.entry(type_).and_modify(|qty_| *qty_ += qty);
-        }
-
-        print_equipment(&robots, &minerals);
-    }
-
-    0
+    let max_geode_qty = analyze_next_minute(1, robots, minerals, &costs[0], Vec::new());
+    println!("max geode qty for blueprint {} is {}", costs[0].id, max_geode_qty);
+    max_geode_qty
 }
 
 fn print_equipment(robots: &HashMap<Mineral, u32>, minerals: &HashMap<Mineral, u32>) {
     for mineral in Mineral::iter() {
-        println!("{:20} robots:{:3?}  minerals:{:?}", mineral, robots[&mineral], minerals[&mineral]);
+        println!("\t{:20} robots:{:3?}  minerals:{:?}", mineral, robots[&mineral], minerals[&mineral]);
     }
     println!();
 }
