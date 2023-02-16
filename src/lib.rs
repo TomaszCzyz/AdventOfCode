@@ -18,3 +18,4 @@ pub mod regolith_reservoir;
 pub mod pyroclastic_flow;
 pub mod boiling_boulders;
 pub mod not_enough_minerals;
+pub mod grove_positioning_system;

@@ -294,7 +294,7 @@ fn analyze_next_minute(
     let mut allowed_minerals: Vec<Mineral> = vec![Mineral::Geode, Mineral::Obsidian, Mineral::Clay, Mineral::Ore];
 
     let filtered_history = history.iter()
-        .filter(|(miner, min)| miner.is_some())
+        .filter(|(miner, _min)| miner.is_some())
         .map(|(miner, min)| (miner.unwrap(), min));
 
     match filtered_history.clone().last() {
