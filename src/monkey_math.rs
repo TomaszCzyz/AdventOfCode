@@ -168,10 +168,7 @@ pub fn monkey_math_part_1(file_name: &str) -> i64 {
 }
 
 pub fn monkey_math_part_2(file_name: &str) -> i64 {
-    let mut input = read_input(file_name);
-
-    input.entry("humn".to_string()).and_modify(|yell| *yell = Yell::Number(301));
-
+    let input = read_input(file_name);
     let mut lhs_postfix_notation: Vec<PostFixElem> = Vec::new();
     let mut rhs_postfix_notation: Vec<PostFixElem> = Vec::new();
 
@@ -179,7 +176,7 @@ pub fn monkey_math_part_2(file_name: &str) -> i64 {
 
     let root = &input["root"];
     let (lhs, rhs) = match root {
-        Yell::Number(val) => return *val as i64,
+        Yell::Number(val) => return *val,
         Yell::Function(name1, _op, name2) => (name1, name2),
     };
 
@@ -224,120 +221,90 @@ pub fn monkey_math_part_2(file_name: &str) -> i64 {
     let notation_without_me = &notations[(contains_me + 1) % notations.len()];
 
     let result = calculate_postfix(notation_without_me);
-    println!("without me: {:?}", notation_without_me);
-    println!("result: {}\n", result);
-
-    println!("with me: {:?}", notation_with_me);
 
     // manipulate notation to calculate my number
     let new_notation = manipulate_postfix_notation(notation_with_me, result);
-    println!("notation after manipulation: {:?}", new_notation);
 
-    let result = calculate_postfix(&new_notation);
-    println!("result of new notation is: {}", result);
-
-    result
+    calculate_postfix(&new_notation)
 }
 
 fn manipulate_postfix_notation(input_notation: &Vec<PostFixElem>, desired_result: i64) -> Vec<PostFixElem> {
     let mut new_postfix_notation: VecDeque<PostFixElem> = VecDeque::from([PostFixElem::Number(desired_result)]);
     let mut notation_clone: VecDeque<PostFixElem> = VecDeque::from(input_notation.clone());
 
-    println!("======");
-    loop {
-        // let (head, tail) = (notation_clone.iter().take(15).collect::<Vec<_>>(), notation_clone.iter().skip(notation_clone.len() - 15).collect::<Vec<_>>());
-        // println!("\nnotation_clone: {:?} .. {:?}", head, tail);
-        println!("\nnotation_clone: {:?}", notation_clone);
-        println!("new notation:   {:?}", new_postfix_notation);
-        println!("notation_clone length: {}", notation_clone.len());
+    // pop last element, which always should be of type 'Operator'
+    while let PostFixElem::Operation(op) = notation_clone.pop_back().unwrap() {
 
-        // pop last element, which always should be of type 'Operator'
-        if let PostFixElem::Operation(op) = notation_clone.pop_back().unwrap() {
-            // find the components of the operator
-            let mut nesting_counter = 1_usize;
-            let mut index = notation_clone.len() - 1;
-            while nesting_counter != 0 {
-                let elem = &notation_clone[index];
-                match elem {
-                    PostFixElem::Number(_) => nesting_counter -= 1,
-                    PostFixElem::Operation(_) => nesting_counter += 1,
-                    PostFixElem::Variable(_) => {}
-                }
-                index -= 1;
+        // find the components of the operator
+        let mut nesting_counter = 1_usize;
+        let mut index = notation_clone.len();
+        while nesting_counter != 0 {
+            let elem = &notation_clone[index - 1];
+            match elem {
+                PostFixElem::Number(_) => nesting_counter -= 1,
+                PostFixElem::Operation(_) => nesting_counter += 1,
+                PostFixElem::Variable(_) => {}
             }
-            index += 1;
+            index -= 1;
+        }
 
-            // determine which component contains 'me'
-            let mut left_contains_me = false;
-            for elem in notation_clone.iter().take(index) {
-                if let PostFixElem::Number(num) = elem {
-                    if *num == i64::MAX { left_contains_me = true }
+        // determine which component contains 'me'
+        let mut left_contains_me = false;
+        for elem in notation_clone.iter().take(index) {
+            if let PostFixElem::Number(num) = elem {
+                if *num == i64::MAX {
+                    left_contains_me = true;
+                    break;
                 }
             }
+        }
 
-            // split elements into two components
-            let right_component = notation_clone.split_off(index);
-            let left_component = notation_clone.clone();
+        // split elements into two components
+        let right_component = notation_clone.split_off(index);
+        let left_component = notation_clone.clone();
 
-            println!("index: {index}");
-            println!("left: {:?}", left_component);
-            println!("right: {:?}", right_component);
-
-            let elements_to_move = if left_contains_me {
-                notation_clone = left_component;
-                right_component
-            } else {
-                notation_clone = right_component;
-                left_component
-            };
-
-            // move elements to new postfix notation
-            match op {
-                OperationKind::Addition => {
-                    for elem in elements_to_move.into_iter() {
-                        new_postfix_notation.push_back(elem);
-                    }
-                    new_postfix_notation.push_back(PostFixElem::Operation(OperationKind::Subtraction))
-                }
-                OperationKind::Subtraction => {
-                    for elem in elements_to_move.into_iter().rev() {
-                        new_postfix_notation.push_front(elem);
-                    }
-
-                    let new_op = if left_contains_me {
-                        OperationKind::Addition
-                    } else {
-                        OperationKind::Subtraction
-                    };
-                    new_postfix_notation.push_back(PostFixElem::Operation(new_op))
-                }
-                OperationKind::Multiplication => {
-                    for elem in elements_to_move.into_iter() {
-                        new_postfix_notation.push_back(elem);
-                    }
-                    new_postfix_notation.push_back(PostFixElem::Operation(OperationKind::Division))
-                }
-                OperationKind::Division => {
-                    for elem in elements_to_move.into_iter().rev() {
-                        new_postfix_notation.push_front(elem);
-                    }
-
-                    let new_op = if left_contains_me {
-                        OperationKind::Multiplication
-                    } else {
-                        OperationKind::Division
-                    };
-                    new_postfix_notation.push_back(PostFixElem::Operation(new_op))
-                }
-            };
+        // point to variable with elements to move, and assign the remaining elements back to 'loop variable'
+        let elements_to_move = if left_contains_me {
+            notation_clone = left_component;
+            right_component
         } else {
-            println!("\t(!!!)there was no operator and the end of the notation_clone");
-            break;
-        }
+            notation_clone = right_component;
+            left_component
+        };
 
-        if notation_clone.is_empty() {
-            break;
-        }
+        // move elements to new postfix notation and determine new operator based on component moved
+        let new_op = match op {
+            OperationKind::Addition => {
+                for elem in elements_to_move.into_iter() {
+                    new_postfix_notation.push_back(elem);
+                }
+
+                OperationKind::Subtraction
+            }
+            OperationKind::Multiplication => {
+                for elem in elements_to_move.into_iter() {
+                    new_postfix_notation.push_back(elem);
+                }
+
+                OperationKind::Division
+            }
+            OperationKind::Subtraction => {
+                for elem in elements_to_move.into_iter().rev() {
+                    new_postfix_notation.push_front(elem);
+                }
+
+                if left_contains_me { OperationKind::Addition } else { OperationKind::Subtraction }
+            }
+            OperationKind::Division => {
+                for elem in elements_to_move.into_iter().rev() {
+                    new_postfix_notation.push_front(elem);
+                }
+
+                if left_contains_me { OperationKind::Multiplication } else { OperationKind::Division }
+            }
+        };
+
+        new_postfix_notation.push_back(PostFixElem::Operation(new_op))
     }
 
     new_postfix_notation.into()
