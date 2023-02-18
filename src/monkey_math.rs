@@ -107,6 +107,31 @@ fn initialize_postfix_notation(input: &HashMap<String, Yell>, postfix_notation: 
     }
 }
 
+fn expand_variables_in_notation(input: &mut HashMap<String, Yell>, notation: &mut Vec<PostFixElem>) {
+    'outer: loop {
+        for (index, elem) in notation.clone().iter().enumerate() {
+            match elem {
+                PostFixElem::Variable(name) => {
+                    notation.remove(index);
+
+                    match &input[name] {
+                        Yell::Number(val) => notation.insert(index, PostFixElem::Number(*val)),
+                        Yell::Function(name1, op, name2) => {
+                            notation.insert(index, PostFixElem::Variable(name1.to_string()));
+                            notation.insert(index + 1, PostFixElem::Variable(name2.to_string()));
+                            notation.insert(index + 2, PostFixElem::Operation(*op));
+                        }
+                    }
+                    continue 'outer;
+                }
+                _ => continue,
+            }
+        }
+
+        break;
+    }
+}
+
 fn calculate_postfix(postfix_notation: &[PostFixElem]) -> i64 {
     let mut stack: Vec<i64> = Vec::new();
 
@@ -130,102 +155,6 @@ fn calculate_postfix(postfix_notation: &[PostFixElem]) -> i64 {
         }
     }
     stack.pop().unwrap()
-}
-
-pub fn monkey_math_part_1(file_name: &str) -> i64 {
-    let input = read_input(file_name);
-
-    let mut postfix_notation: Vec<PostFixElem> = Vec::new();
-
-    initialize_postfix_notation(&input, &mut postfix_notation, &"root".to_string());
-
-    'outer: loop {
-        for (index, elem) in postfix_notation.clone().iter().enumerate() {
-            match elem {
-                PostFixElem::Variable(name) => {
-                    postfix_notation.remove(index);
-
-                    match &input[name] {
-                        Yell::Number(val) => postfix_notation.insert(index, PostFixElem::Number(*val)),
-                        Yell::Function(name1, op, name2) => {
-                            postfix_notation.insert(index, PostFixElem::Variable(name1.to_string()));
-                            postfix_notation.insert(index + 1, PostFixElem::Variable(name2.to_string()));
-                            postfix_notation.insert(index + 2, PostFixElem::Operation(*op));
-                        }
-                    }
-                    continue 'outer;
-                }
-                _ => continue,
-            }
-        }
-
-        break;
-    }
-
-    // println!("{:?}", postfix_notation);
-
-    calculate_postfix(&postfix_notation)
-}
-
-pub fn monkey_math_part_2(file_name: &str) -> i64 {
-    let input = read_input(file_name);
-    let mut lhs_postfix_notation: Vec<PostFixElem> = Vec::new();
-    let mut rhs_postfix_notation: Vec<PostFixElem> = Vec::new();
-
-    // println!("{:#?}", input);
-
-    let root = &input["root"];
-    let (lhs, rhs) = match root {
-        Yell::Number(val) => return *val,
-        Yell::Function(name1, _op, name2) => (name1, name2),
-    };
-
-    initialize_postfix_notation(&input, &mut lhs_postfix_notation, lhs);
-    initialize_postfix_notation(&input, &mut rhs_postfix_notation, rhs);
-
-    let mut contains_me = 0;
-    let mut notations = [lhs_postfix_notation, rhs_postfix_notation];
-
-    for (notation_index, notation) in notations.iter_mut().enumerate() {
-        'outer: loop {
-            for (index, elem) in notation.clone().iter().enumerate() {
-                match elem {
-                    PostFixElem::Variable(name) => {
-                        notation.remove(index);
-
-                        if name == "humn" {
-                            contains_me = notation_index;
-                            notation.insert(index, PostFixElem::Number(i64::MAX));
-                            continue 'outer;
-                        }
-
-                        match &input[name] {
-                            Yell::Number(val) => notation.insert(index, PostFixElem::Number(*val)),
-                            Yell::Function(name1, op, name2) => {
-                                notation.insert(index, PostFixElem::Variable(name1.to_string()));
-                                notation.insert(index + 1, PostFixElem::Variable(name2.to_string()));
-                                notation.insert(index + 2, PostFixElem::Operation(*op));
-                            }
-                        }
-                        continue 'outer;
-                    }
-                    _ => continue,
-                }
-            }
-
-            break;
-        }
-    }
-
-    let notation_with_me = &notations[contains_me];
-    let notation_without_me = &notations[(contains_me + 1) % notations.len()];
-
-    let result = calculate_postfix(notation_without_me);
-
-    // manipulate notation to calculate my number
-    let new_notation = manipulate_postfix_notation(notation_with_me, result);
-
-    calculate_postfix(&new_notation)
 }
 
 fn manipulate_postfix_notation(input_notation: &Vec<PostFixElem>, desired_result: i64) -> Vec<PostFixElem> {
@@ -308,4 +237,55 @@ fn manipulate_postfix_notation(input_notation: &Vec<PostFixElem>, desired_result
     }
 
     new_postfix_notation.into()
+}
+
+pub fn monkey_math_part_1(file_name: &str) -> i64 {
+    let mut input = read_input(file_name);
+
+    let mut postfix_notation: Vec<PostFixElem> = Vec::new();
+
+    initialize_postfix_notation(&input, &mut postfix_notation, &"root".to_string());
+
+    expand_variables_in_notation(&mut input, &mut postfix_notation);
+
+    calculate_postfix(&postfix_notation)
+}
+
+pub fn monkey_math_part_2(file_name: &str) -> i64 {
+    let mut input = read_input(file_name);
+    let mut lhs_postfix_notation: Vec<PostFixElem> = Vec::new();
+    let mut rhs_postfix_notation: Vec<PostFixElem> = Vec::new();
+
+    input.entry("humn".to_string()).and_modify(|yell| *yell = Yell::Number(i64::MAX));
+
+    let root = &input["root"];
+    let (lhs, rhs) = match root {
+        Yell::Number(val) => return *val,
+        Yell::Function(name1, _op, name2) => (name1, name2),
+    };
+
+    initialize_postfix_notation(&input, &mut lhs_postfix_notation, lhs);
+    initialize_postfix_notation(&input, &mut rhs_postfix_notation, rhs);
+
+    let mut notations = [lhs_postfix_notation, rhs_postfix_notation];
+
+    for notation in notations.iter_mut() {
+        expand_variables_in_notation(&mut input, notation);
+    }
+
+    let left_contains_me = notations[0].iter()
+        .any(|elem| if let PostFixElem::Number(num) = elem { *num == i64::MAX } else { false });
+
+    let (with_me, without_me) = if left_contains_me {
+        (&notations[0], &notations[1])
+    } else {
+        (&notations[1], &notations[0])
+    };
+
+    let result = calculate_postfix(without_me);
+
+    // manipulate notation to calculate my number
+    let new_notation = manipulate_postfix_notation(with_me, result);
+
+    calculate_postfix(&new_notation)
 }
