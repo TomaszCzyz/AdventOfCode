@@ -56,7 +56,7 @@ impl Debug for PostFixElem {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             PostFixElem::Variable(name) => write!(f, "{name}"),
-            PostFixElem::Number(num) => write!(f, "{num}"),
+            PostFixElem::Number(num) => if *num != i64::MAX { write!(f, "{num}") } else { write!(f, "ME") },
             PostFixElem::Operation(op) => write!(f, "{op:?}"),
         }
     }
@@ -240,79 +240,105 @@ pub fn monkey_math_part_2(file_name: &str) -> i64 {
 }
 
 fn manipulate_postfix_notation(input_notation: &Vec<PostFixElem>, desired_result: i64) -> Vec<PostFixElem> {
-    let mut new_postfix_notation: Vec<PostFixElem> = Vec::from([PostFixElem::Number(desired_result)]);
+    let mut new_postfix_notation: VecDeque<PostFixElem> = VecDeque::from([PostFixElem::Number(desired_result)]);
     let mut notation_clone: VecDeque<PostFixElem> = VecDeque::from(input_notation.clone());
 
     println!("======");
     loop {
-        let (head, tail) = (notation_clone.iter().take(15).collect::<Vec<_>>(), notation_clone.iter().skip(notation_clone.len() - 15).collect::<Vec<_>>());
-        println!("\nnotation_clone: {:?} .. {:?}", head, tail);
+        // let (head, tail) = (notation_clone.iter().take(15).collect::<Vec<_>>(), notation_clone.iter().skip(notation_clone.len() - 15).collect::<Vec<_>>());
+        // println!("\nnotation_clone: {:?} .. {:?}", head, tail);
+        println!("\nnotation_clone: {:?}", notation_clone);
         println!("new notation:   {:?}", new_postfix_notation);
         println!("notation_clone length: {}", notation_clone.len());
 
-        let mut found_me = false;
+        // pop last element, which always should be of type 'Operator'
         if let PostFixElem::Operation(op) = notation_clone.pop_back().unwrap() {
-            let x = (notation_clone.pop_front().unwrap(), notation_clone.pop_back().unwrap());
-            println!("front: {:?}\t\tback: {:?}", x.0, x.1);
-            match x {
-                (PostFixElem::Number(num1), PostFixElem::Number(num)) => {
-                    // return op back
-                    notation_clone.push_front(PostFixElem::Number(num1));
-
-                    if num != i64::MAX {
-                        new_postfix_notation.push(PostFixElem::Number(num))
-                    } else {
-                        for elem in &notation_clone {
-                            new_postfix_notation.push(elem.clone())
-                        }
-                        found_me = true;
-                    }
+            // find the components of the operator
+            let mut nesting_counter = 1_usize;
+            let mut index = notation_clone.len() - 1;
+            while nesting_counter != 0 {
+                let elem = &notation_clone[index];
+                match elem {
+                    PostFixElem::Number(_) => nesting_counter -= 1,
+                    PostFixElem::Operation(_) => nesting_counter += 1,
+                    PostFixElem::Variable(_) => {}
                 }
-                (PostFixElem::Number(num), PostFixElem::Operation(op)) => {
-                    // return op back
-                    notation_clone.push_back(PostFixElem::Operation(op));
+                index -= 1;
+            }
+            index += 1;
 
-                    if num != i64::MAX {
-                        new_postfix_notation.push(PostFixElem::Number(num))
-                    } else {
-                        for elem in &notation_clone {
-                            new_postfix_notation.push(elem.clone())
-                        }
-                        found_me = true;
-                    }
+            // determine which component contains 'me'
+            let mut left_contains_me = false;
+            for elem in notation_clone.iter().take(index) {
+                if let PostFixElem::Number(num) = elem {
+                    if *num == i64::MAX { left_contains_me = true }
                 }
-                (PostFixElem::Operation(op), PostFixElem::Number(num)) => {
-                    // return op back
-                    notation_clone.push_front(PostFixElem::Operation(op));
-
-                    if num != i64::MAX {
-                        new_postfix_notation.push(PostFixElem::Number(num))
-                    } else {
-                        for elem in &notation_clone {
-                            new_postfix_notation.push(elem.clone())
-                        }
-                        found_me = true;
-                    }
-                }
-                _ => {}
             }
 
-            let opposite_op = match op {
-                OperationKind::Addition => OperationKind::Subtraction,
-                OperationKind::Subtraction => OperationKind::Addition,
-                OperationKind::Multiplication => OperationKind::Division,
-                OperationKind::Division => OperationKind::Multiplication,
+            // split elements into two components
+            let right_component = notation_clone.split_off(index);
+            let left_component = notation_clone.clone();
+
+            println!("index: {index}");
+            println!("left: {:?}", left_component);
+            println!("right: {:?}", right_component);
+
+            let elements_to_move = if left_contains_me {
+                notation_clone = left_component;
+                right_component
+            } else {
+                notation_clone = right_component;
+                left_component
             };
-            new_postfix_notation.push(PostFixElem::Operation(opposite_op));
+
+            // move elements to new postfix notation
+            match op {
+                OperationKind::Addition => {
+                    for elem in elements_to_move.into_iter() {
+                        new_postfix_notation.push_back(elem);
+                    }
+                    new_postfix_notation.push_back(PostFixElem::Operation(OperationKind::Subtraction))
+                }
+                OperationKind::Subtraction => {
+                    for elem in elements_to_move.into_iter().rev() {
+                        new_postfix_notation.push_front(elem);
+                    }
+
+                    let new_op = if left_contains_me {
+                        OperationKind::Addition
+                    } else {
+                        OperationKind::Subtraction
+                    };
+                    new_postfix_notation.push_back(PostFixElem::Operation(new_op))
+                }
+                OperationKind::Multiplication => {
+                    for elem in elements_to_move.into_iter() {
+                        new_postfix_notation.push_back(elem);
+                    }
+                    new_postfix_notation.push_back(PostFixElem::Operation(OperationKind::Division))
+                }
+                OperationKind::Division => {
+                    for elem in elements_to_move.into_iter().rev() {
+                        new_postfix_notation.push_front(elem);
+                    }
+
+                    let new_op = if left_contains_me {
+                        OperationKind::Multiplication
+                    } else {
+                        OperationKind::Division
+                    };
+                    new_postfix_notation.push_back(PostFixElem::Operation(new_op))
+                }
+            };
         } else {
-            println!("there was no operator and the end of the notation_clone");
+            println!("\t(!!!)there was no operator and the end of the notation_clone");
             break;
         }
 
-        if found_me || notation_clone.is_empty() {
+        if notation_clone.is_empty() {
             break;
         }
     }
 
-    new_postfix_notation
+    new_postfix_notation.into()
 }
