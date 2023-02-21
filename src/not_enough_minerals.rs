@@ -214,7 +214,7 @@ fn try_build_next_robots(
     *answers.iter().max().unwrap()
 }
 
-fn create_build_request(robot_type: Mineral, current_minute: u32, history: &HashMap<Mineral, Vec<u32>>) -> Vec<Mineral> {
+fn create_build_request(robot_type: Mineral, _current_minute: u32, _history: &HashMap<Mineral, Vec<u32>>) -> Vec<Mineral> {
     match robot_type {
         Mineral::Ore => vec![Mineral::Ore, Mineral::Clay],
         Mineral::Clay => vec![Mineral::Clay, Mineral::Obsidian],

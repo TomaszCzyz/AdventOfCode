@@ -20,3 +20,4 @@ pub mod boiling_boulders;
 pub mod not_enough_minerals;
 pub mod grove_positioning_system;
 pub mod monkey_math;
+pub mod monkey_map;
