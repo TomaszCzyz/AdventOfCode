@@ -5,7 +5,6 @@ use std::io::{BufRead, BufReader};
 use std::iter;
 
 type Map = Vec<Vec<i8>>;
-type Coords = (usize, usize);
 
 #[derive(Debug)]
 enum MoveInstruction {
@@ -131,16 +130,10 @@ fn print_map(map: &Map) {
     }
 }
 
-fn extract_rows_and_cols_info(map: &Map) -> (
-    HashMap<usize, (i32, i32)>,
-    HashMap<usize, (i32, i32)>,
-    HashMap<usize, Vec<i32>>,
-    HashMap<usize, Vec<i32>>)
-{
-    let mut rows = HashMap::new();
-    let mut cols = HashMap::new();
-    let mut rows_obstacles: HashMap<usize, Vec<i32>> = HashMap::new();
-    let mut cols_obstacles: HashMap<usize, Vec<i32>> = HashMap::new();
+/// row_no/col_no -> ((road_start_index, road_end_index), [indexes of obstacles])
+fn extract_rows_and_cols_info(map: &Map) -> (HashMap<usize, ((i32, i32), Vec<i32>)>, HashMap<usize, ((i32, i32), Vec<i32>)>) {
+    let mut rows: HashMap<usize, ((i32, i32), Vec<i32>)> = HashMap::new();
+    let mut cols: HashMap<usize, ((i32, i32), Vec<i32>)> = HashMap::new();
 
     // rows
     for i in 0..map.len() {
@@ -156,15 +149,9 @@ fn extract_rows_and_cols_info(map: &Map) -> (
         }
         let road_end = j - 1;
 
-        if !obstacles_indexes.is_empty() {
-            let road_len = (road_end - road_start) as i32 + 1;
-            let (first, last) = (obstacles_indexes[0], obstacles_indexes[obstacles_indexes.len() - 1]);
-            obstacles_indexes.insert(0, last - road_len);
-            obstacles_indexes.insert(obstacles_indexes.len(), first + road_len);
-        }
+        add_wrapped_obstacles_indexes(&mut obstacles_indexes, road_start, road_end);
 
-        rows.insert(i, (road_start as i32, road_end as i32));
-        rows_obstacles.insert(i, obstacles_indexes);
+        rows.insert(i, ((road_start as i32, road_end as i32), obstacles_indexes));
     }
 
     // cols
@@ -183,17 +170,24 @@ fn extract_rows_and_cols_info(map: &Map) -> (
         }
         let road_end = i - 1;
 
-        if !obstacles_indexes.is_empty() {
-            let road_len = (road_end - road_start) as i32 + 1;
-            let (first, last) = (obstacles_indexes[0], obstacles_indexes[obstacles_indexes.len() - 1]);
-            obstacles_indexes.insert(0, last - road_len);
-            obstacles_indexes.insert(obstacles_indexes.len(), first + road_len);
-        }
+        add_wrapped_obstacles_indexes(&mut obstacles_indexes, road_start, road_end);
 
-        cols.insert(j, (road_start as i32, road_end as i32));
-        cols_obstacles.insert(j, obstacles_indexes);
+        cols.insert(j, ((road_start as i32, road_end as i32), obstacles_indexes));
     }
-    (rows, cols, rows_obstacles, cols_obstacles)
+
+    (rows, cols)
+}
+
+fn add_wrapped_obstacles_indexes(mut obstacles_indexes: &mut Vec<i32>, road_start: usize, road_end: usize) {
+    if !obstacles_indexes.is_empty() {
+        let road_len = (road_end - road_start) as i32 + 1;
+        let (first, last) = (obstacles_indexes[0], obstacles_indexes[obstacles_indexes.len() - 1]);
+        obstacles_indexes.insert(0, last - road_len);
+        obstacles_indexes.insert(obstacles_indexes.len(), first + road_len);
+    } else {
+        obstacles_indexes.push(i32::MIN / 2);
+        obstacles_indexes.push(i32::MAX / 2);
+    }
 }
 
 pub fn monkey_map_part_1(file_name: &str) -> i32 {
@@ -202,12 +196,12 @@ pub fn monkey_map_part_1(file_name: &str) -> i32 {
     print_map(&map);
     println!("{:?}", instructions);
 
-    let (rows, cols, rows_obstacles, cols_obstacles) = extract_rows_and_cols_info(&map);
+    let (rows, cols) = extract_rows_and_cols_info(&map);
     println!("rows: {:?}", rows);
     println!("cols: {:?}", cols);
 
     let mut row = 0_i32;
-    let mut col = rows[&0].0;
+    let mut col = rows[&0].0.0;
     let mut dir = Direction::Right;
 
     for instruction in instructions.into_iter() {
@@ -217,32 +211,28 @@ pub fn monkey_map_part_1(file_name: &str) -> i32 {
             MoveInstruction::Go(amount) => {
                 println!("\npos: {:?}", (row, col, dir));
 
-                let ((start, end), ob, pos) = match dir {
-                    Direction::Right | Direction::Left => (&rows[&(row as usize)], &rows_obstacles[&(row as usize)], &mut col),
-                    Direction::Up | Direction::Down => (&cols[&(col as usize)], &cols_obstacles[&(col as usize)], &mut row),
+                let dir_factor = match dir {
+                    Direction::Left | Direction::Up => -1,
+                    Direction::Right | Direction::Down => 1,
                 };
-                println!("{ob:?}");
-
-                let idx = ob.partition_point(|&x| x < *pos);
-                let (prev_ob, next_ob) = if ob.is_empty() {
-                    (i32::MAX, i32::MAX)
-                } else {
-                    (ob[idx - 1], ob[idx])
+                let (info, pos) = match dir {
+                    Direction::Right | Direction::Left => (&rows[&(row as usize)], &mut col),
+                    Direction::Up | Direction::Down => (&cols[&(col as usize)], &mut row),
                 };
-                println!("closest obstacles: {:?}", (prev_ob, next_ob));
+                let ((start, end), obstacles) = info;
 
-                let max_forward = next_ob - *pos - 1;
-                let max_backward = (prev_ob - *pos + 1).abs();
-                println!("move amount: {:3}\tmax forward: {} max backward: {}", amount, max_forward, max_backward);
+                println!("{obstacles:?}");
 
-                match dir {
-                    Direction::Left | Direction::Up => *pos -= max_backward.min(amount as i32),
-                    Direction::Right | Direction::Down => *pos += max_forward.min(amount as i32),
-                };
+                let idx = obstacles.partition_point(|&x| x < *pos);
+                let next_obstacle = if dir_factor == 1 { obstacles[idx] } else { obstacles[idx - 1] };
+                println!("closest obstacles: {:?}", next_obstacle);
+
+                let max_dist = (next_obstacle - *pos - dir_factor).abs();
+                println!("move amount: {:3}\tmax dist: {}", amount, max_dist);
+
+                *pos += dir_factor * max_dist.min(amount as i32);
 
                 let len = end - start + 1;
-                println!("edges: {:?}, len: {len}", (start, end));
-
                 if *pos < *start {
                     while *pos < *start { *pos += len; };
                 } else if *pos > *end {
