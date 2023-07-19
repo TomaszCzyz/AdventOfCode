@@ -3,6 +3,10 @@ use std::fmt::Debug;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::iter;
+use std::str::from_boxed_utf8_unchecked;
+use itertools::Itertools;
+use strum::IntoEnumIterator;
+use strum_macros::EnumIter;
 
 type Map = Vec<Vec<i8>>;
 
@@ -178,7 +182,7 @@ fn extract_rows_and_cols_info(map: &Map) -> (HashMap<usize, ((i32, i32), Vec<i32
     (rows, cols)
 }
 
-fn add_wrapped_obstacles_indexes(mut obstacles_indexes: &mut Vec<i32>, road_start: usize, road_end: usize) {
+fn add_wrapped_obstacles_indexes(obstacles_indexes: &mut Vec<i32>, road_start: usize, road_end: usize) {
     if !obstacles_indexes.is_empty() {
         let road_len = (road_end - road_start) as i32 + 1;
         let (first, last) = (obstacles_indexes[0], obstacles_indexes[obstacles_indexes.len() - 1]);
@@ -248,4 +252,220 @@ pub fn monkey_map_part_1(file_name: &str) -> i32 {
         Direction::Left => 2,
         Direction::Up => 3,
     }
+}
+
+// Part 2
+
+// Input net:
+//   ■ ■   |   6 5
+//   ■     |   3
+// ■ ■     | 2 1
+// ■       | 4
+//
+//   x ->
+// y 0,0 0,1
+// | 0,1 1,1
+// v
+
+// type CoordsMap = Vec<Vec<(usize, usize)>>;
+type DiceSideInfo = ((usize, usize), Rotation);
+
+#[derive(Debug, Eq, EnumIter, Ord, PartialOrd, PartialEq, Hash)]
+enum DiceSide {
+    Side1,
+    Side2,
+    Side3,
+    Side4,
+    Side5,
+    Side6,
+}
+
+#[derive(Debug, Eq, EnumIter, Ord, PartialOrd, PartialEq, Hash)]
+enum Rotation {
+    Rot000,
+    Rot090,
+    Rot180,
+    Rot270,
+}
+
+struct InputInfo {
+    // length of an edge of a dice's side
+    side_length: usize,
+    // cube's net of my input; maps side of a dice from an input net to coords (x,y) of upper-left corner
+    // and its rotation relative to original rotation in dice
+    dice_sides_info: HashMap<DiceSide, DiceSideInfo>,
+    // maps side to its sides that are to the right and to the bottom ("orbits")
+    side_complements: HashMap<DiceSide, ([DiceSide; 3], [DiceSide; 3])>,
+}
+
+impl InputInfo {
+    const COMPLEMENTS: [(DiceSide, ([DiceSide; 3], [DiceSide; 3])); 6] = [
+        (DiceSide::Side1, ([DiceSide::Side5, DiceSide::Side6, DiceSide::Side2], [DiceSide::Side4, DiceSide::Side6, DiceSide::Side3])),
+        (DiceSide::Side2, ([DiceSide::Side3, DiceSide::Side5, DiceSide::Side4], [DiceSide::Side1, DiceSide::Side5, DiceSide::Side6])),
+        (DiceSide::Side3, ([DiceSide::Side5, DiceSide::Side4, DiceSide::Side2], [DiceSide::Side1, DiceSide::Side4, DiceSide::Side6])),
+        (DiceSide::Side4, ([DiceSide::Side2, DiceSide::Side3, DiceSide::Side5], [DiceSide::Side1, DiceSide::Side3, DiceSide::Side6])),
+        (DiceSide::Side5, ([DiceSide::Side4, DiceSide::Side2, DiceSide::Side3], [DiceSide::Side1, DiceSide::Side2, DiceSide::Side6])),
+        (DiceSide::Side6, ([DiceSide::Side2, DiceSide::Side1, DiceSide::Side5], [DiceSide::Side4, DiceSide::Side1, DiceSide::Side3])),
+    ];
+
+    fn new() -> Self {
+        let dice_sides_info = HashMap::from([
+            (DiceSide::Side1, ((50, 100), Rotation::Rot000)),
+            (DiceSide::Side2, ((0, 1000), Rotation::Rot270)),
+            (DiceSide::Side3, ((50, 50), Rotation::Rot000)),
+            (DiceSide::Side4, ((0, 150), Rotation::Rot270)),
+            (DiceSide::Side5, ((100, 0), Rotation::Rot180)),
+            (DiceSide::Side6, ((50, 0), Rotation::Rot270)),
+        ]);
+
+        Self {
+            side_length: 50,
+            dice_sides_info,
+            side_complements: HashMap::from(InputInfo::COMPLEMENTS),
+        }
+    }
+
+    fn example_1() -> Self {
+        let dice_sides_info = HashMap::from([
+            (DiceSide::Side1, ((2, 4), Rotation::Rot000)),
+            (DiceSide::Side2, ((0, 4), Rotation::Rot270)),
+            (DiceSide::Side3, ((2, 2), Rotation::Rot000)),
+            (DiceSide::Side4, ((0, 6), Rotation::Rot270)),
+            (DiceSide::Side5, ((4, 0), Rotation::Rot270)),
+            (DiceSide::Side6, ((2, 0), Rotation::Rot180)),
+        ]);
+
+        Self {
+            side_length: 2,
+            dice_sides_info,
+            side_complements: HashMap::from(InputInfo::COMPLEMENTS),
+        }
+    }
+}
+
+fn rotate(map: &Map, rotation: &Rotation) -> Map {
+    match rotation {
+        Rotation::Rot000 => map.clone(),
+        Rotation::Rot090 => rotate_once(map),
+        Rotation::Rot180 => rotate_once(&rotate_once(map)),
+        Rotation::Rot270 => rotate_once(&rotate_once(&rotate_once(map))),
+    }
+}
+
+fn rotate_once<T>(v: &Vec<Vec<T>>) -> Vec<Vec<T>> where T: Clone {
+    assert!(!v.is_empty());
+    let n = v.len();
+    (0..n).map(|i| (0..n).map(|j| v[n - j - 1][i].clone()).collect::<Vec<_>>()).collect()
+}
+
+pub fn monkey_map_part_2(file_name: &str) -> i32 {
+    let input_info = InputInfo::example_1();
+
+    // map of each rotation of each side, e.g.
+    // side_rotations[DiceSide::Side1][Rotation::000] = [[(50,50),(50,51)], [(51,50),(51,51)]]
+    let mut side_rotations: HashMap<DiceSide, HashMap<Rotation, Map>> = HashMap::new();
+
+    let (map, instructions) = read_input(file_name);
+    print_map(&map);
+    println!("{:?}", instructions);
+
+    // inserting rotations from original map and creating missing ones
+    for (dice_side, ((x_begin, y_begin), rot)) in input_info.dice_sides_info {
+        let y_range = y_begin..(y_begin + input_info.side_length);
+        let side_map = y_range.map(|y| {
+            let x_range = x_begin..(x_begin + input_info.side_length);
+            (x_range).map(|x| map[y][x]).collect::<Vec<_>>()
+        }).collect::<Vec<_>>();
+
+        let four_rotations = match rot {
+            Rotation::Rot000 => [
+                rotate(&side_map, &Rotation::Rot000),
+                rotate(&side_map, &Rotation::Rot090),
+                rotate(&side_map, &Rotation::Rot180),
+                rotate(&side_map, &Rotation::Rot270),
+            ],
+            Rotation::Rot090 => [
+                rotate(&side_map, &Rotation::Rot270),
+                rotate(&side_map, &Rotation::Rot000),
+                rotate(&side_map, &Rotation::Rot090),
+                rotate(&side_map, &Rotation::Rot180),
+            ],
+            Rotation::Rot180 => [
+                rotate(&side_map, &Rotation::Rot180),
+                rotate(&side_map, &Rotation::Rot270),
+                rotate(&side_map, &Rotation::Rot000),
+                rotate(&side_map, &Rotation::Rot090),
+            ],
+            Rotation::Rot270 => [
+                rotate(&side_map, &Rotation::Rot090),
+                rotate(&side_map, &Rotation::Rot180),
+                rotate(&side_map, &Rotation::Rot270),
+                rotate(&side_map, &Rotation::Rot000),
+            ],
+        };
+
+        let rotations = Rotation::iter()
+            .zip(four_rotations.into_iter())
+            .collect::<HashMap<_, _>>();
+
+        side_rotations.insert(dice_side, rotations);
+    }
+
+    for (side, rotations) in side_rotations.iter().sorted_by_key(|&(s, _)| s) {
+        println!("dice side: {:?}", side);
+        for (rotation, map) in rotations.iter().sorted() {
+            println!("{:?} ->", rotation);
+            print_map(map);
+        }
+    }
+
+    // let mut row = 0_i32;
+    // let mut col = rows[&0].0.0;
+    // let mut dir = Direction::Right;
+    //
+    // for instruction in instructions.into_iter() {
+    //     match instruction {
+    //         MoveInstruction::TurnLeft => dir.turn_left(),
+    //         MoveInstruction::TurnRight => dir.turn_right(),
+    //         MoveInstruction::Go(amount) => {
+    //             println!("\npos: {:?}", (row, col, dir));
+    //
+    //             let dir_factor = match dir {
+    //                 Direction::Left | Direction::Up => -1,
+    //                 Direction::Right | Direction::Down => 1,
+    //             };
+    //             let (info, pos) = match dir {
+    //                 Direction::Right | Direction::Left => (&rows[&(row as usize)], &mut col),
+    //                 Direction::Up | Direction::Down => (&cols[&(col as usize)], &mut row),
+    //             };
+    //             let ((start, end), obstacles) = info;
+    //
+    //             println!("{obstacles:?}");
+    //
+    //             let idx = obstacles.partition_point(|&x| x < *pos);
+    //             let next_obstacle = if dir_factor == 1 { obstacles[idx] } else { obstacles[idx - 1] };
+    //             println!("closest obstacles: {:?}", next_obstacle);
+    //
+    //             let max_dist = (next_obstacle - *pos - dir_factor).abs();
+    //             println!("move amount: {:3}\tmax dist: {}", amount, max_dist);
+    //
+    //             *pos += dir_factor * max_dist.min(amount as i32);
+    //
+    //             let len = end - start + 1;
+    //             if *pos < *start {
+    //                 while *pos < *start { *pos += len; };
+    //             } else if *pos > *end {
+    //                 while *pos > *end { *pos -= len; };
+    //             };
+    //         }
+    //     }
+    // }
+    //
+    // 1000 * (row + 1) + 4 * (col + 1) + match dir {
+    //     Direction::Right => 0,
+    //     Direction::Down => 1,
+    //     Direction::Left => 2,
+    //     Direction::Up => 3,
+    // }
+    todo!()
 }
