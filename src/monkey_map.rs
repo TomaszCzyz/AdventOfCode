@@ -27,7 +27,7 @@ enum Direction {
 
 impl Direction {
     fn turn_right(&mut self) {
-        println!("turning right");
+        // println!("turning right");
         *self = match self {
             Direction::Left => Direction::Up,
             Direction::Right => Direction::Down,
@@ -37,7 +37,7 @@ impl Direction {
     }
 
     fn turn_left(&mut self) {
-        println!("turning left");
+        // println!("turning left");
         *self = match self {
             Direction::Left => Direction::Down,
             Direction::Right => Direction::Up,
@@ -449,15 +449,8 @@ fn rotate(map: &Vec<Vec<Point>>, initial_rotation: &Direction) -> PointsMap {
         Direction::Up => map.clone(),
         Direction::Left => rotate_once(map),
         Direction::Down => rotate_once(&rotate_once(map)),
-        // Direction::Down => mirror_horizontally(map),
         Direction::Right => rotate_once(&rotate_once(&rotate_once(map))),
     }
-}
-
-fn mirror_horizontally<T>(v: &Vec<Vec<T>>) -> Vec<Vec<T>> where T: Clone {
-    assert!(!v.is_empty());
-    let n = v.len();
-    (0..n).map(|i| v[n - 1 - i].clone()).collect::<Vec<_>>()
 }
 
 fn rotate_once<T>(v: &Vec<Vec<T>>) -> Vec<Vec<T>> where T: Clone {
@@ -467,7 +460,9 @@ fn rotate_once<T>(v: &Vec<Vec<T>>) -> Vec<Vec<T>> where T: Clone {
 }
 
 /// 1 2 3
+///
 /// 4 5 6
+///
 /// 7 8 9
 ///
 /// gives:
@@ -496,15 +491,29 @@ fn get_edges(side_maps: &HashMap<DiceSide, PointsMap>) -> HashMap<EdgeIdentifier
     edges
 }
 
+fn get_point(
+    edges: &HashMap<EdgeIdentifier, Vec<Point>>,
+    side_dir: (DiceSide, Direction),
+    n: usize,
+    tile_index: usize,
+) -> Point {
+    let dice_info = DiceInfo::new();
+    let adjacent_edges = dice_info.adjacent_edges;
+
+    // let (edge_identifier, is_reversed) = &adjacent_edges[&(side, Direction::Left)];
+    let (edge_identifier, is_reversed) = &adjacent_edges[&side_dir];
+    let adjacent_edge = &edges[edge_identifier];
+    let index = if !is_reversed { tile_index } else { n - 1 - tile_index };
+
+    adjacent_edge[index]
+}
+
 fn find_neighbors(
     input_info: &InputInfo,
     sides_transformations: &HashMap<DiceSide, PointsMap>,
     edges: &HashMap<EdgeIdentifier, Vec<Point>>,
 ) -> HashMap<Point, HashMap<Direction, Point>> {
     let mut neighbors = HashMap::new();
-
-    let dice_info = DiceInfo::new();
-    let adjacent_edges = dice_info.adjacent_edges;
 
     for (&side, side_map) in sides_transformations {
         let n = input_info.side_length;
@@ -513,40 +522,23 @@ fn find_neighbors(
                 let curr_point = side_map[row][col];
                 let mut tiles_around = HashMap::new();
 
-                // cannot go left
-                if col == 0 {
-                    let (edge_identifier, is_reversed) = &adjacent_edges[&(side, Direction::Left)];
-                    let adjacent_edge = &edges[edge_identifier];
-                    let index = if !is_reversed { row } else { n - 1 - row };
-                    tiles_around.insert(Direction::Left, adjacent_edge[index]);
+                if col == 0 { // cannot go left
+                    let point = get_point(edges, (side, Direction::Left), n, row);
+                    tiles_around.insert(Direction::Left, point);
+                } else if col == n - 1 { // cannot go right
+                    let point = get_point(edges, (side, Direction::Right), n, row);
+                    tiles_around.insert(Direction::Right, point);
                 }
 
-                // cannot go right
-                if col == n - 1 {
-                    let (edge_identifier, is_reversed) = &adjacent_edges[&(side, Direction::Right)];
-                    let adjacent_edge = &edges[edge_identifier];
-                    let index = if !is_reversed { row } else { n - 1 - row };
-                    tiles_around.insert(Direction::Right, adjacent_edge[index]);
-                };
-
-                // we cannot go up:
-                if row == 0 {
-                    let (edge_identifier, is_reversed) = &adjacent_edges[&(side, Direction::Up)];
-                    let adjacent_edge = &edges[edge_identifier];
-                    let index = if !is_reversed { col } else { n - 1 - col };
-
-                    tiles_around.insert(Direction::Up, adjacent_edge[index]);
+                if row == 0 { // we cannot go up:
+                    let point = get_point(edges, (side, Direction::Up), n, col);
+                    tiles_around.insert(Direction::Up, point);
+                } else if row == n - 1 { // we cannot go down:
+                    let point = get_point(edges, (side, Direction::Down), n, col);
+                    tiles_around.insert(Direction::Down, point);
                 }
 
-                // we cannot go down:
-                if row == n - 1 {
-                    let (edge_identifier, is_reversed) = &adjacent_edges[&(side, Direction::Down)];
-                    let adjacent_edge = &edges[edge_identifier];
-                    let index = if !is_reversed { col } else { n - 1 - col };
-
-                    tiles_around.insert(Direction::Down, adjacent_edge[index]);
-                }
-
+                // fill ordinary neighbors
                 for dir in Direction::iter() {
                     if tiles_around.contains_key(&dir) {
                         continue;
@@ -571,58 +563,51 @@ fn find_neighbors(
 }
 
 fn create_sides_maps(input_info: &InputInfo) -> HashMap<DiceSide, PointsMap> {
-    let mut sides_maps = HashMap::new();
+    let n = input_info.side_length;
 
-    for (&dice_side, ((x_begin, y_begin), top_direction)) in input_info.dice_sides_info.iter() {
-        let n = input_info.side_length;
-        let points_map = (*y_begin..(*y_begin + n)).map(|y| {
-            (*x_begin..(*x_begin + n)).map(|x| Point { x, y }).collect::<Vec<_>>()
-        }).collect::<Vec<_>>();
+    input_info.dice_sides_info.iter()
+        .map(|(&dice_side, ((x_begin, y_begin), top_direction))| {
+            let points_map = (*y_begin..(*y_begin + n)).map(|y| {
+                (*x_begin..(*x_begin + n)).map(|x| Point { x, y }).collect::<Vec<_>>()
+            }).collect::<Vec<_>>();
 
-        let normalized_side = rotate(&points_map, top_direction);
-
-        sides_maps.insert(dice_side, normalized_side);
-    }
-
-    sides_maps
+            let normalized_side = rotate(&points_map, top_direction);
+            (dice_side, normalized_side)
+        }).collect::<HashMap<_, _>>()
 }
 
 pub fn monkey_map_part_2(file_name: &str, input_info: InputInfo) -> usize {
     let (original_map, instructions) = read_input(file_name);
-    print_map(&original_map);
-    println!("{:?}", instructions);
+    // print_map(&original_map);
+    // println!("{:?}", instructions);
 
     let sides_maps = create_sides_maps(&input_info);
-    print_rotations(&sides_maps);
+    // print_rotations(&sides_maps);
 
     let edges = get_edges(&sides_maps);
-    println!("Edges");
-    for (key, vec) in edges.iter().sorted() {
-        println!("{key:?} -> {vec:?}");
-    }
+    // println!("Edges");
+    // for (key, vec) in edges.iter().sorted() {
+    //     println!("{key:?} -> {vec:?}");
+    // }
 
     let neighbors: HashMap<Point, HashMap<Direction, Point>> = find_neighbors(&input_info, &sides_maps, &edges);
-    // print neighbors
-    for (center, around) in neighbors.iter().sorted_by_key(|&(p, _)| p) {
-        let up = around[&Direction::Up];
-        let right = around[&Direction::Right];
-        let down = around[&Direction::Down];
-        let left = around[&Direction::Left];
-
-        println!("{center:?} -> up:{up:?} right:{right:?} down:{down:?} left:{left:?}")
-    }
-
+    // println!("Neighbors:");
+    // for (center, around) in neighbors.iter().sorted_by_key(|&(p, _)| p) {
+    //     let up = around[&Direction::Up];
+    //     let right = around[&Direction::Right];
+    //     let down = around[&Direction::Down];
+    //     let left = around[&Direction::Left];
+    //
+    //     println!("{center:?} -> up:{up:?} right:{right:?} down:{down:?} left:{left:?}")
+    // }
 
     let mut start_x = 0;
     while original_map[0][start_x] != 0 { start_x += 1; };
 
-    // let mut curr_point = Point { x: 5, y: 1 };
-    // let mut curr_side = DiceSide::Side6;
-    // let mut dir = Direction::Up;
     let mut curr_point = Point { x: start_x, y: 0 };
     let mut curr_side = input_info.start_side;
     let mut dir = input_info.start_dir;
-    let mut walk_history = Vec::new();
+    // let mut walk_history = Vec::new();
     let mut walk_ins_counter = 0;
 
     for instruction in instructions.into_iter() {
@@ -636,37 +621,14 @@ pub fn monkey_map_part_2(file_name: &str, input_info: InputInfo) -> usize {
                 dir.turn_right();
             }
             MoveInstruction::Go(amount) => {
-                println!("\npos: {:?}", (curr_point, dir));
+                // println!("\npos: {:?}", (curr_point, dir));
 
                 let mut counter = 0usize;
                 loop {
-                    walk_ins_counter += 1;
-                    match walk_history.iter().map(|(p, _)| p).position(|&p| p == curr_point) {
-                        Some(pos) => {
-                            walk_history[pos] = (curr_point, walk_ins_counter);
-                        }
-                        None => {
-                            walk_history.push((curr_point, walk_ins_counter));
-                        }
-                    }
-
-                    // for (row_y, row) in original_map.iter().enumerate() {
-                    //     for (tile_x, tile) in row.iter().enumerate() {
-                    //         let p = Point { x: tile_x, y: row_y };
-                    //
-                    //         let sign = match walk_history.iter().find(|&(pp, _)| *pp == p) {
-                    //             Some((_, index)) => format!("{:3}", index % 1000),
-                    //             None => match tile {
-                    //                 -1 => "   ".to_string(),
-                    //                 0 => "  .".to_string(),
-                    //                 1 => "  #".to_string(),
-                    //                 _ => panic!()
-                    //             }
-                    //         };
-                    //
-                    //         print!("{sign}");
-                    //     }
-                    //     println!();
+                    // walk_ins_counter += 1;
+                    // match walk_history.iter().map(|(p, _)| p).position(|&p| p == curr_point) {
+                    //     Some(pos) => walk_history[pos] = (curr_point, walk_ins_counter),
+                    //     None => walk_history.push((curr_point, walk_ins_counter)),
                     // }
 
                     // when jumping to other side we need to adjust direction
@@ -705,28 +667,23 @@ pub fn monkey_map_part_2(file_name: &str, input_info: InputInfo) -> usize {
                                 _ => dir,
                             };
 
-                            println!("jumped for {curr_side:?} to {dice_side:?} and change dir from {dir:?} to {new_dir:?}");
+                            // println!("jumped for {curr_side:?} to {dice_side:?} and change dir from {dir:?} to {new_dir:?}");
                             dir = new_dir;
                             curr_side = *dice_side;
                         }
                     }
 
                     if counter == amount {
-                        println!("moved exactly {amount} of tiles");
+                        // println!("moved exactly {amount} of tiles");
                         break;
                     }
 
                     let next_point = neighbors[&curr_point][&dir];
 
                     if original_map[next_point.y][next_point.x] == 1 {
-                        println!("obstacle encountered on {:?}", (next_point.x, next_point.y));
+                        // println!("obstacle encountered on {:?}", (next_point.x, next_point.y));
                         break;
                     }
-
-                    // println!("neighbors of next current point ({:?}):", curr_point);
-                    // for (neighbor_dir, neighbor_point) in &neighbors[&curr_point] {
-                    //     println!("\tdir: {:?} -> {:?}", neighbor_dir, neighbor_point);
-                    // }
 
                     curr_point = next_point;
                     counter += 1;
@@ -735,24 +692,24 @@ pub fn monkey_map_part_2(file_name: &str, input_info: InputInfo) -> usize {
         }
     }
 
-    for (row_y, row) in original_map.iter().enumerate() {
-        for (tile_x, tile) in row.iter().enumerate() {
-            let p = Point { x: tile_x, y: row_y };
-
-            let sign = match walk_history.iter().find(|&(pp, _)| *pp == p) {
-                Some((_, index)) => format!("{:4}", index % 1000),
-                None => match tile {
-                    -1 => "    ".to_string(),
-                    0 => "   .".to_string(),
-                    1 => "   #".to_string(),
-                    _ => panic!()
-                }
-            };
-
-            print!("{sign}");
-        }
-        println!();
-    }
+    // for (row_y, row) in original_map.iter().enumerate() {
+    //     for (tile_x, tile) in row.iter().enumerate() {
+    //         let p = Point { x: tile_x, y: row_y };
+    //
+    //         let sign = match walk_history.iter().find(|&(pp, _)| *pp == p) {
+    //             Some((_, index)) => format!("{:4}", index % 1000),
+    //             None => match tile {
+    //                 -1 => "    ".to_string(),
+    //                 0 => "   .".to_string(),
+    //                 1 => "   #".to_string(),
+    //                 _ => panic!()
+    //             }
+    //         };
+    //
+    //         print!("{sign}");
+    //     }
+    //     println!();
+    // }
 
     println!("final point: {curr_point:?} with dir: {dir:?}");
 
