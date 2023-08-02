@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use std::fmt::{Debug, Formatter, Pointer};
+use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::iter;
@@ -608,16 +608,16 @@ pub fn monkey_map_part_2(file_name: &str, input_info: InputInfo) -> usize {
     let mut curr_side = input_info.start_side;
     let mut dir = input_info.start_dir;
     // let mut walk_history = Vec::new();
-    let mut walk_ins_counter = 0;
+    // let mut walk_ins_counter = 0;
 
     for instruction in instructions.into_iter() {
         match instruction {
             MoveInstruction::TurnLeft => {
-                walk_ins_counter -= 1;
+                // walk_ins_counter -= 1;
                 dir.turn_left();
             }
             MoveInstruction::TurnRight => {
-                walk_ins_counter -= 1;
+                // walk_ins_counter -= 1;
                 dir.turn_right();
             }
             MoveInstruction::Go(amount) => {
@@ -734,6 +734,7 @@ pub fn monkey_map_part_2(file_name: &str, input_info: InputInfo) -> usize {
     }
 }
 
+#[allow(dead_code)]
 fn print_rotations(side_rotations: &HashMap<DiceSide, PointsMap>) {
     for (side, map) in side_rotations.iter().sorted_by_key(|&(s, _)| s) {
         println!("dice side: {:?}", side);

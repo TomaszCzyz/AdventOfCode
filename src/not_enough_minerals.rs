@@ -292,6 +292,7 @@ fn analyze_next_minute(
     }
 
     let mut allowed_minerals: Vec<Mineral> = vec![Mineral::Geode, Mineral::Obsidian, Mineral::Clay, Mineral::Ore];
+    let _ = allowed_minerals[0];
 
     let filtered_history = history.iter()
         .filter(|(miner, _min)| miner.is_some())
