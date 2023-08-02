@@ -99,10 +99,8 @@ fn unstable_diffusion(filename: &str, rounds: usize) -> (usize, HashSet<Point>) 
                 .collect::<HashSet<_>>();
 
             // check if elf can go in any direction
-            let mut it = direction_points.iter().zip(far_points.iter());
-            // let mut has_adjacent_elf = false;
-            while let Some((points, far_point)) = it.next() {
-                if neighbors.iter().any(|&&p| p == *elf_point + points[0] || p == *elf_point + points[1] || p == *elf_point + points[2]) {
+            for (points, far_point) in direction_points.iter().zip(far_points.iter()) {
+                if neighbors.iter().any(|&&p| points.iter().any(|dir_p| *elf_point + *dir_p == p)) {
                     // cannot go in this direction, there is an elf in one of three points
                     continue;
                 }
@@ -124,7 +122,7 @@ fn unstable_diffusion(filename: &str, rounds: usize) -> (usize, HashSet<Point>) 
                 // there might be collision with an elf
                 if neighbors.contains(&collision_elf_point) {
                     let neighbors_of_collision_elf = set_cloned.iter()
-                        .filter(|&p| p.dist(&collision_elf_point) <= 2f32)
+                        .filter(|&p| p.dist(&collision_elf_point) < 2f32)
                         .collect::<HashSet<_>>();
 
                     let wanted_tile = check_elf_dir(&collision_elf_point, &neighbors_of_collision_elf, &direction_points);
@@ -153,7 +151,6 @@ fn unstable_diffusion(filename: &str, rounds: usize) -> (usize, HashSet<Point>) 
 
         if no_elf_moved {
             println!("no elf moved!!");
-            // print_input(&set);
             return (round_no, set.clone());
         }
     }
@@ -208,17 +205,16 @@ fn print_input(set: &HashSet<Point>) {
     let min_max_row = set.iter().map(|p| p.row).minmax();
 
     if let (MinMaxResult::MinMax(min_row, max_row), MinMaxResult::MinMax(min_col, max_col)) = (min_max_row, min_max_col) {
-        for row in min_row..=max_row {
-            for col in min_col..=max_col {
-                print!("{}", if set.contains(&Point { row, col }) { "#" } else { "." });
-            }
-            println!();
-        }
+        print_tiles(set, min_row, max_row, min_col, max_col);
     }
 }
 
 #[allow(dead_code)]
 fn print_input_padded(set: &HashSet<Point>, min_row: i32, max_row: i32, min_col: i32, max_col: i32) {
+    print_tiles(set, min_row, max_row, min_col, max_col);
+}
+
+fn print_tiles(set: &HashSet<Point>, min_row: i32, max_row: i32, min_col: i32, max_col: i32) {
     for row in min_row..=max_row {
         for col in min_col..=max_col {
             print!("{}", if set.contains(&Point { row, col }) { "#" } else { "." });

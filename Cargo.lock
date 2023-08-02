@@ -9,7 +9,6 @@ dependencies = [
  "criterion",
  "itertools 0.11.0",
  "ptree",
- "rayon",
  "strum",
  "strum_macros",
 ]
