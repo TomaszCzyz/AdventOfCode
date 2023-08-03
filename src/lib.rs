@@ -22,3 +22,4 @@ pub mod grove_positioning_system;
 pub mod monkey_math;
 pub mod monkey_map;
 pub mod unstable_diffusion;
+pub mod blizzard_basin;
