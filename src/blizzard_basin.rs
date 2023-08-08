@@ -8,7 +8,6 @@ type Map = Vec<Vec<Tile>>;
 
 #[derive(Eq, PartialEq, Debug)]
 enum Direction {
-    None,
     Up,
     Right,
     Down,
@@ -29,7 +28,6 @@ impl Debug for Tile {
                 Direction::Right => write!(f, ">"),
                 Direction::Down => write!(f, "v"),
                 Direction::Left => write!(f, "<"),
-                _ => panic!()
             }
         }
     }
@@ -106,62 +104,12 @@ struct TaskData {
     blizzards_vertically: HashMap<Point, HashSet<usize>>,
 }
 
-fn possible_moves_in_order(p: Point, height: usize, width: usize, dir_order: &[Direction]) -> Vec<Point> {
-    let mut points = Vec::new();
-
-    for dir in dir_order {
-        match dir {
-            Direction::None => points.push(p),
-            Direction::Up => if p.row != 0 { points.push(p.up()); },
-            Direction::Right => if p.col != width - 1 { points.push(p.right()); },
-            Direction::Down => if p.row != height - 1 { points.push(p.down()); },
-            Direction::Left => if p.col != 0 { points.push(p.left()); },
-        }
-    }
-    // println!("{}", points.len());
-    points
-}
-
-#[allow(dead_code)]
-const DIFFERENT_ORDERS: [[Direction; 5]; 2] = [
-    [Direction::Right, Direction::Down, Direction::None, Direction::Up, Direction::Left],
-    [Direction::Down, Direction::Right, Direction::None, Direction::Left, Direction::Up],
-    // [Direction::Right, Direction::None, Direction::Down, Direction::Left, Direction::Up],
-    // [Direction::None, Direction::Right, Direction::Down, Direction::Left, Direction::Up],
-];
-
-
-fn dfs(point: Point, minute: usize, task_data: &TaskData, mut history: Vec<Point>) -> Option<(usize, Vec<Point>)> {
-    let (height, width) = (task_data.height, task_data.width);
-    history.push(point);
-
-    if point.row == height - 1 && point.col == width - 1 {
-        return Some((minute, history));
-    }
-
-    // for order in DIFFERENT_ORDERS {
-    let order = [Direction::Right, Direction::Down, Direction::None, Direction::Up, Direction::Left];
-    let next_points = possible_moves_in_order(point, height, width, &order)
-        .into_iter()
-        .filter(|p| is_clear(p, minute + 1, task_data));
-
-    for new_point in next_points {
-        let new_history = history.clone();
-        if let Some(answer) = dfs(new_point, minute + 1, task_data, new_history) {
-            return Some(answer);
-        }
-    }
-    // }
-
-    None
-}
-
 fn manhattan_dist((p1, min): (&Point, usize), p2: &Point) -> u32 {
     (p1.row.abs_diff(p2.row) + p1.col.abs_diff(p2.col)) as u32 + min as u32
 }
 
 fn a_star(start: Point, goal: Point, task_data: &TaskData, h: fn((&Point, usize), &Point) -> u32) -> (usize, HashMap<Point, Point>) {
-    let mut open_set = HashSet::from([(start, 1usize)]);//{start}
+    let mut open_set = HashSet::from([(start, 1usize)]);
     let mut came_from = HashMap::new();
     let mut g_score = HashMap::new();
     let mut f_score = HashMap::new();
@@ -181,9 +129,7 @@ fn a_star(start: Point, goal: Point, task_data: &TaskData, h: fn((&Point, usize)
     while !open_set.is_empty()
     {
         let (current_point, current_minute) = *open_set.iter()
-            .min_by(|&(p1, min1), &(p2, min2)| {
-                h((p1, *min1), &goal).cmp(&h((p2, *min2), &goal))
-            })
+            .min_by(|&(p1, min1), &(p2, min2)| h((p1, *min1), &goal).cmp(&h((p2, *min2), &goal)))
             .unwrap();
 
         open_set.remove(&(current_point, current_minute));
@@ -192,7 +138,7 @@ fn a_star(start: Point, goal: Point, task_data: &TaskData, h: fn((&Point, usize)
             return (current_minute, came_from);
         }
 
-        let available_neighbors = neighbors_of_2(current_point, task_data.height, task_data.width).into_iter()
+        let available_neighbors = neighbors_of(current_point, task_data.height, task_data.width).into_iter()
             .chain(iter::once(current_point))
             .filter(|p| is_clear(p, current_minute + 1, task_data))
             .collect::<Vec<_>>();
@@ -216,7 +162,7 @@ fn a_star(start: Point, goal: Point, task_data: &TaskData, h: fn((&Point, usize)
 
 pub fn blizzard_basin_part_1(filename: &str) -> usize {
     let input = read_input(filename);
-    print_input(&input);
+    // print_input(&input);
 
     let (blizzards_horizontally, blizzards_vertically) = calculate_blizzards_distances(&input);
     let (width, height) = (input[0].len(), input.len());
@@ -228,42 +174,25 @@ pub fn blizzard_basin_part_1(filename: &str) -> usize {
         blizzards_vertically,
     };
 
-    for minute in 1..=12 {
-        println!("== MINUTE {minute} ==");
-        for row in 0..height {
-            for col in 0..width {
-                let ch = if is_clear(&Point { row, col }, minute, &task_data) {
-                    '▮'
-                } else {
-                    '▯'
-                };
-                print!("{}", ch);
-            }
-            println!()
-        }
-    }
+    // for minute in 1..=12 {
+    //     println!("== MINUTE {minute} ==");
+    //     for row in 0..height {
+    //         for col in 0..width {
+    //             // '☠'
+    //             let ch = if is_clear(&Point { row, col }, minute, &task_data) {
+    //                 '▮'
+    //             } else {
+    //                 '▯'
+    //             };
+    //             print!("{}", ch);
+    //         }
+    //         println!()
+    //     }
+    // }
 
     let start = Point { row: 0, col: 0 };
     let goal = Point { row: task_data.height - 1, col: task_data.width - 1 };
-    let (result, came_from) = a_star(start, goal, &task_data, manhattan_dist);
-
-    let mut history = Vec::new();
-    for key in came_from.keys() {
-        history.insert(0, came_from[key]);
-    }
-
-    for row in 0..height {
-        for col in 0..width {
-            // let point = history[minute - 1];
-            let ch = if history.contains(&Point { row, col }) {
-                '☠'
-            } else {
-                '▯'
-            };
-            print!("{}", ch);
-        }
-        println!()
-    }
+    let (result, _came_from) = a_star(start, goal, &task_data, manhattan_dist);
 
     result + 1
 }
@@ -283,27 +212,11 @@ pub fn blizzard_basin_part_1_bfs(filename: &str) -> usize {
         blizzards_vertically,
     };
 
-    for minute in 0..=12 {
-        println!("== MINUTE {minute} ==");
-        for row in 0..height {
-            for col in 0..width {
-                let ch = if is_clear(&Point { row, col }, minute, &task_data) {
-                    '▮'
-                } else {
-                    '▯'
-                };
-                print!("{}", ch);
-            }
-            println!()
-        }
-    }
-
-    let mut queue = VecDeque::from([(Point { row: 0, col: 0 }, Direction::None, 1usize)]);
+    let mut queue = VecDeque::from([(Point { row: 0, col: 0 }, 1usize)]);
 
     while !queue.is_empty()
     {
-        let (point, _dir, minute) = queue.pop_front().unwrap();
-        // println!("Going {:?}", dir);
+        let (point, minute) = queue.pop_front().unwrap();
 
         if queue.len() % 100000 == 0 {
             println!("point: {:?}, minute {}\t\t (queue size: {})", point, minute, queue.len());
@@ -314,19 +227,12 @@ pub fn blizzard_basin_part_1_bfs(filename: &str) -> usize {
         }
 
         let available_neighbors = neighbors_of(point, height, width).into_iter()
-            .chain(iter::once((point, Direction::None)))
-            .filter(|(p, _)| is_clear(p, minute, &task_data))
+            .chain(iter::once(point))
+            .filter(|p| is_clear(p, minute, &task_data))
             .collect::<Vec<_>>();
 
-        for (neighbor, neighbor_dir) in available_neighbors {
-            if neighbor_dir == Direction::Right || neighbor_dir == Direction::Down {
-                let idx = queue.partition_point(|(_p, dir, _minute)|
-                    *dir == Direction::Right && *dir == Direction::Down);
-
-                queue.insert(idx, (neighbor, neighbor_dir, minute + 1));
-            } else {
-                queue.push_back((neighbor, neighbor_dir, minute + 1));
-            }
+        for neighbor in available_neighbors {
+            queue.push_back((neighbor, minute + 1));
         }
     }
 
@@ -334,24 +240,7 @@ pub fn blizzard_basin_part_1_bfs(filename: &str) -> usize {
     1
 }
 
-fn neighbors_of(p: Point, height: usize, width: usize) -> Vec<(Point, Direction)> {
-    let mut neighbors = Vec::new();
-    if p.col != width - 1 {
-        neighbors.push((p.right(), Direction::Right))
-    }
-    if p.row != height - 1 {
-        neighbors.push((p.down(), Direction::Down))
-    }
-    if p.row != 0 {
-        neighbors.push((p.up(), Direction::Up))
-    }
-    if p.col != 0 {
-        neighbors.push((p.left(), Direction::Left))
-    }
-    neighbors
-}
-
-fn neighbors_of_2(p: Point, height: usize, width: usize) -> Vec<Point> {
+fn neighbors_of(p: Point, height: usize, width: usize) -> Vec<Point> {
     let mut neighbors = Vec::new();
     if p.col != width - 1 {
         neighbors.push(p.right())
