@@ -1,8 +1,6 @@
-use std::{cmp, fs, iter};
+use std::{fs, iter};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fmt::{Debug, Formatter};
-
-use num::integer::lcm;
 
 type Map = Vec<Vec<Tile>>;
 
@@ -116,51 +114,29 @@ pub fn blizzard_basin_part_1(filename: &str) -> usize {
         blizzards_vertically,
     };
 
-    let start = Point { row: task_data.height - 1, col: task_data.width - 1 };
-    let goal = Point { row: 0, col: 0 };
-    let minute = 26;
+    let start = Point { row: 0, col: 1 };
+    let goal = Point { row: task_data.height + 1, col: task_data.width };
+    let start_minute = 0;
 
-    // let start = Point { row: 0, col: 0 };
-    // let goal = Point { row: task_data.height - 1, col: task_data.width - 1 };
+    let (result, _came_from) = a_star(start, goal, start_minute, &task_data, manhattan_dist_plus_minute).unwrap();
 
-    // let mut minute = 1;
-    // loop {
-    //     if is_clear(&start, minute, &task_data) {
-    //         break;
+    // for minute in 0..=12 {
+    //     println!("== MINUTE {minute} ==");
+    //     for row in 1..=height {
+    //         for col in 1..=width {
+    //             // '☠'
+    //             let ch = if is_clear(&Point { row, col }, minute, &task_data) {
+    //                 '▮'
+    //             } else {
+    //                 '▯'
+    //             };
+    //             print!("{}", ch);
+    //         }
+    //         println!()
     //     }
-    //     minute += 1;
     // }
 
-    let (result, came_from) = a_star(start, goal, minute, &task_data, manhattan_dist_plus_minute).unwrap();
-
-    for minute in 24..=(24+41) {
-        println!("== MINUTE {minute} ==");
-        for row in 0..height {
-            for col in 0..width {
-                // '☠'
-                let ch = if is_clear(&Point { row, col }, minute, &task_data) {
-                    '▮'
-                } else {
-                    '▯'
-                };
-                print!("{}", ch);
-            }
-            println!()
-        }
-    }
-    for row in 0..height {
-        for col in 0..width {
-            let ch = if came_from.contains_key(&Point { row, col }) {
-                '☠'
-            } else {
-                '▯'
-            };
-            print!("{}", ch);
-        }
-        println!()
-    }
-
-    result + 1
+    result
 }
 
 pub fn blizzard_basin_part_2(filename: &str) -> usize {
@@ -175,62 +151,24 @@ pub fn blizzard_basin_part_2(filename: &str) -> usize {
         blizzards_vertically,
     };
 
-    for minute in 1..=50 {
-        println!("== MINUTE {minute} ==");
-        for row in 0..height {
-            for col in 0..width {
-                // '☠'
-                let ch = if is_clear(&Point { row, col }, minute, &task_data) {
-                    '▮'
-                } else {
-                    '▯'
-                };
-                print!("{}", ch);
-            }
-            println!()
-        }
-    }
+    let start = Point { row: 0, col: 1 };
+    let goal = Point { row: task_data.height + 1, col: task_data.width };
 
-    let start = Point { row: 0, col: 0 };
-    let goal = Point { row: task_data.height - 1, col: task_data.width - 1 };
-
-    let _algorithm_data = [
+    let algorithm_data = [
         (start, goal),
         (goal, start),
         (start, goal),
     ];
 
     let mut sum = 0usize;
-    let mut start_minute = 1;
-    for (begin, end) in _algorithm_data.into_iter() {
-        loop {
-            if is_clear(&begin, start_minute, &task_data) {
-                break;
-            }
-            start_minute += 1;
-        }
-
-        loop {
-            let result = a_star(begin, end, start_minute, &task_data, manhattan_dist_plus_minute);
-            match result {
-                Some((minutes, _came_from)) => {
-                    println!("found path from {:?} to  {:?} taking {} minutes starting in minute {}", begin, end, minutes + 1, start_minute);
-                    sum += minutes + 1;
-                    break;
-                }
-                None => {
-                    start_minute += 1;
-                }
-            }
-        }
-
-        start_minute = sum + 1;
+    let mut start_minute = 0;
+    for (begin, end) in algorithm_data.into_iter() {
+        let (minutes, _) = a_star(begin, end, start_minute, &task_data, manhattan_dist_plus_minute).unwrap();
+        sum += minutes;
+        start_minute = sum;
     }
-    // let result = algorithm_data.into_iter()
-    //     .map(|(being, end)| a_star(being, end, &task_data, manhattan_dist_plus_minute) + 1)
-    //     .sum::<usize>();
 
-    sum + 1
+    sum
 }
 
 fn manhattan_dist_plus_minute((p1, min): (&Point, usize), p2: &Point) -> u32 {
@@ -249,29 +187,19 @@ fn a_star(
     let mut g_score = HashMap::new();
     let mut f_score = HashMap::new();
 
-    let max_minute = cmp::max(lcm(task_data.height, task_data.width), 1500);
-    for row in 0..task_data.height {
-        for col in 0..task_data.width {
-            for min in 1..=max_minute {
-                g_score.insert((Point { row, col }, min), usize::MAX);
-                f_score.insert((Point { row, col }, min), u32::MAX);
-            }
-        }
-    }
-
-    g_score.entry((start, start_minute)).and_modify(|entry| *entry = 0);
-    f_score.entry((start, start_minute)).and_modify(|entry| *entry = h((&start, start_minute), &goal));
+    g_score.entry((start, start_minute)).or_insert(0);
+    f_score.entry((start, start_minute)).or_insert(h((&start, start_minute), &goal));
 
     while !open_set.is_empty()
     {
         let (current_point, current_minute) = *open_set.iter()
-            .min_by(|&(p1, min1), &(p2, min2)| h((p1, *min1), &goal).cmp(&h((p2, *min2), &goal)))
+            .min_by(|&elem1, &elem2| f_score[elem1].cmp(&f_score[elem2]))
             .unwrap();
 
         open_set.remove(&(current_point, current_minute));
 
         if current_point == goal {
-            return Some((current_minute - start_minute + 1, came_from));
+            return Some((current_minute - start_minute, came_from));
         }
 
         let available_neighbors = neighbors_of(current_point, task_data.height, task_data.width).into_iter()
@@ -280,12 +208,22 @@ fn a_star(
             .collect::<Vec<_>>();
 
         for neighbor in available_neighbors {
-            let tentative_g_score = g_score[&(current_point, current_minute)] + 1;
+            let score_of_current = *g_score.entry((current_point, current_minute)).or_insert(usize::MAX);
+            let score_of_neighbor = *g_score.entry((neighbor, current_minute + 1)).or_insert(usize::MAX);
 
-            if tentative_g_score <= g_score[&(neighbor, current_minute + 1)] {
-                came_from.entry(neighbor).and_modify(|x| *x = current_point).or_insert(current_point);
-                g_score.entry((neighbor, current_minute + 1)).and_modify(|x| *x = tentative_g_score);
-                f_score.entry((neighbor, current_minute + 1)).and_modify(|x| *x = tentative_g_score as u32 + h((&neighbor, current_minute + 1), &goal));
+            let tentative_g_score = score_of_current + 1;
+            if tentative_g_score <= score_of_neighbor {
+                came_from.entry(neighbor)
+                    .and_modify(|x| *x = current_point)
+                    .or_insert(current_point);
+
+                g_score.entry((neighbor, current_minute + 1))
+                    .and_modify(|x| *x = tentative_g_score);
+
+                f_score.entry((neighbor, current_minute + 1))
+                    .and_modify(|x| *x = tentative_g_score as u32 + h((&neighbor, current_minute + 1), &goal))
+                    .or_insert(tentative_g_score as u32 + h((&neighbor, current_minute + 1), &goal));
+
                 if !open_set.contains(&(neighbor, current_minute + 1)) {
                     open_set.insert((neighbor, current_minute + 1));
                 }
@@ -299,10 +237,11 @@ fn a_star(
 
 fn neighbors_of(p: Point, height: usize, width: usize) -> Vec<Point> {
     let mut neighbors = Vec::new();
-    if p.col != width - 1 {
+
+    if p.col != width + 1 {
         neighbors.push(p.right())
     }
-    if p.row != height - 1 {
+    if p.row != height + 1 {
         neighbors.push(p.down())
     }
     if p.row != 0 {
@@ -320,6 +259,17 @@ fn is_clear(
     task_data: &TaskData,
 ) -> bool {
     let (width, height) = (task_data.width, task_data.height);
+    let start = Point { row: 0, col: 1 };
+    let end = Point { row: height + 1, col: width };
+
+    if *point == start || *point == end {
+        return true;
+    }
+
+    // points on edges
+    if point.row == 0 || point.row == height + 1 || point.col == 0 || point.col == width + 1 {
+        return false;
+    }
 
     for blizzard in task_data.blizzards_horizontally[point].iter() {
         if (width * 1000 + *blizzard - minute) % width == 0 {
@@ -336,6 +286,9 @@ fn is_clear(
     true
 }
 
+/// Creates maps, that represents how far are blizzards for each point at the map.
+/// Points of the map's rectangle have coordinates starting from 1 (not zero),
+/// to allow adding start point above with non-negative value.
 fn calculate_blizzards_distances(input: &Map) -> (HashMap<Point, HashSet<usize>>, HashMap<Point, HashSet<usize>>) {
     let mut blizzards_horizontally = HashMap::new();
     let mut blizzards_vertically = HashMap::new();
@@ -353,7 +306,7 @@ fn calculate_blizzards_distances(input: &Map) -> (HashMap<Point, HashSet<usize>>
                     };
                 }
             }
-            blizzards_horizontally.insert(Point { row, col }, horizontal_blizzards_distances);
+            blizzards_horizontally.insert(Point { row: row + 1, col: col + 1 }, horizontal_blizzards_distances);
 
             let mut vertical_blizzards_distances = HashSet::new();
             for i in 0..height {
@@ -365,7 +318,7 @@ fn calculate_blizzards_distances(input: &Map) -> (HashMap<Point, HashSet<usize>>
                     };
                 }
             }
-            blizzards_vertically.insert(Point { row, col }, vertical_blizzards_distances);
+            blizzards_vertically.insert(Point { row: row + 1, col: col + 1 }, vertical_blizzards_distances);
         }
     }
 
