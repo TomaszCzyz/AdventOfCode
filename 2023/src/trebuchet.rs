@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use std::collections::VecDeque;
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -156,7 +158,7 @@ impl<'a> AhoCorasick<'a> {
 
             for child_index in curr_node.children.clone().into_iter() {
                 let child_node = trie.get_node(child_index).unwrap();
-                let child_suffix_index = child_node.suffix;
+                let _child_suffix_index = child_node.suffix;
             } 
         }
     }
