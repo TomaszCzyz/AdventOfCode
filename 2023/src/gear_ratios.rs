@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
@@ -20,7 +20,7 @@ pub struct TaskData {
     numbers: Vec<u32>,
     numbers_coords: Vec<Coord>,
     coord_to_number_index: HashMap<Coord, usize>,
-    symbols: Vec<Coord>,
+    symbols: Vec<(char, Coord)>,
 }
 
 pub fn read_input_part_1(file_name: &str) -> TaskData {
@@ -67,7 +67,7 @@ pub fn read_input_part_1(file_name: &str) -> TaskData {
             } else if ch == '.' || ch == '\n' || ch == '\r' {
                 continue;
             } else {
-                symbols.push(Coord { row, col });
+                symbols.push((ch, Coord { row, col }));
             }
         }
 
@@ -101,7 +101,11 @@ fn gear_ratios_part_1(filename: &str) -> u32 {
     let mut numbers = Vec::new();
     let mut visited_number_indices = Vec::new();
 
-    for coord in task_data.symbols.iter().flat_map(|c| get_neighbors(c)) {
+    let symbols_coords = task_data.symbols.iter()
+        .map(|(_, coord)| coord)
+        .flat_map(|c| get_neighbors(c));
+
+    for coord in symbols_coords {
         if task_data.numbers_coords.contains(&coord) {
             let number_index = task_data.coord_to_number_index[&coord];
             if visited_number_indices.contains(&number_index) {
@@ -114,6 +118,26 @@ fn gear_ratios_part_1(filename: &str) -> u32 {
     }
 
     numbers.iter().sum()
+}
+
+fn gear_ratios_part_2(filename: &str) -> u32 {
+    let data = read_input_part_1(filename);
+    let mut sum = 0;
+
+    for (ch, coord) in data.symbols.iter() {
+        if *ch == '*' {
+            let distinct_adjacent_numbers = get_neighbors(coord).iter()
+                .filter(|&coord| data.numbers_coords.contains(&coord))
+                .map(|coord| data.numbers[data.coord_to_number_index[coord]])
+                .collect::<HashSet<u32>>();
+
+            if distinct_adjacent_numbers.len() == 2 {
+                sum += distinct_adjacent_numbers.iter().fold(1, |acc, x| acc * x);
+            }
+        }
+    }
+
+    sum
 }
 
 #[cfg(test)]
@@ -139,7 +163,23 @@ mod tests {
     fn part_1_input() {
         let answer = gear_ratios_part_1("inputs/3_input.txt");
 
-        println!("part 2 - example - answer: {:?}", answer);
+        println!("part 1 - original - answer: {:?}", answer);
         assert_eq!(answer, 514969);
+    }
+
+    #[test]
+    fn part_2_input_example() {
+        let answer = gear_ratios_part_2("inputs/3_input_example.txt");
+
+        println!("part 2 - example - answer: {:?}", answer);
+        assert_eq!(answer, 467835);
+    }
+
+    #[test]
+    fn part_2_input() {
+        let answer = gear_ratios_part_2("inputs/3_input.txt");
+
+        println!("part 2 - original - answer: {:?}", answer);
+        assert_eq!(answer, 78915902);
     }
 }
