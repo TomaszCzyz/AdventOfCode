@@ -99,7 +99,8 @@ pub fn read_input(file_name: &str) -> (Seeds, HashMap<ResourcePair, Vec<Mapping>
 /// find location value for given seed
 fn calc_location(mut value: usize, resource_mappings: &HashMap<ResourcePair, Vec<Mapping>>) -> usize {
     for resource_pair in RESOURCE_CHAIN.into_iter() {
-        for mapping in resource_mappings.get(&resource_pair).unwrap().iter() {
+        let mappings = resource_mappings.get(&resource_pair).unwrap();
+        for mapping in mappings.iter() {
             if let Some(new_val) = mapping.map(value) {
                 value = new_val;
                 break;
