@@ -1,9 +1,10 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 
 #[derive(Debug)]
 pub struct Card {
+    number: usize,
     winning_numbers: HashSet<u32>,
     guessed_numbers: HashSet<u32>,
 }
@@ -20,6 +21,7 @@ pub fn read_input(file_name: &str) -> Vec<Card> {
     let mut buf = String::new();
 
     let mut cards = Vec::new();
+    let mut number = 1usize;
 
     while let Ok(n) = reader.read_line(&mut buf) {
         if n == 0 {
@@ -36,8 +38,9 @@ pub fn read_input(file_name: &str) -> Vec<Card> {
         let winning_numbers = items.next().unwrap();
         let guessed_numbers = items.next().unwrap();
 
-        cards.push(Card { winning_numbers, guessed_numbers });
+        cards.push(Card { number, winning_numbers, guessed_numbers });
         buf = String::new();
+        number += 1;
     }
 
     let distinct_count_of_winning_numbers_sets = cards.iter()
@@ -62,6 +65,26 @@ fn scratchcards_part_1(filename: &str) -> u32 {
     cards.iter().map(|card| card.calc_win()).sum()
 }
 
+fn scratchcards_part_2(filename: &str) -> u32 {
+    let cards = read_input(filename);
+    let mut cards_qty = HashMap::<usize, u32>::from_iter(cards.iter().map(|c| (c.number, 1)));
+
+    // cards are sorted by number already
+    for card in cards.iter() {
+        let guessed_count = card.winning_numbers.intersection(&card.guessed_numbers).count();
+        let card_type_count = cards_qty[&card.number];
+        for card_num in (card.number + 1)..=(card.number + guessed_count) {
+            cards_qty.entry(card_num).and_modify(|count| *count += card_type_count);
+        }
+    }
+
+    for (k, v) in cards_qty.iter() {
+        println!("{k:?}: {v:?}");
+    }
+
+    cards_qty.values().map(|x| *x).sum()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -82,12 +105,28 @@ mod tests {
         println!("part 1 - example - answer: {:?}", answer);
         assert_eq!(answer, 13);
     }
-    
+
     #[test]
     fn part_1_input() {
         let answer = scratchcards_part_1("inputs/4_input.txt");
 
         println!("part 1 - original - answer: {:?}", answer);
         assert_eq!(answer, 26346);
+    }
+
+    #[test]
+    fn part_2_input_example() {
+        let answer = scratchcards_part_2("inputs/4_input_example.txt");
+
+        println!("part 2 - example - answer: {:?}", answer);
+        assert_eq!(answer, 30);
+    }
+
+    #[test]
+    fn part_2_input() {
+        let answer = scratchcards_part_2("inputs/4_input.txt");
+
+        println!("part 2 - original - answer: {:?}", answer);
+        assert_eq!(answer, 8467762);
     }
 }
