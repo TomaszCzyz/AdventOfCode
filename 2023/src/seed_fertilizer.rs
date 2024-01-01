@@ -1,7 +1,9 @@
+use std::collections::hash_map::Keys;
 use std::collections::HashMap;
 use std::fs::File;
+use std::hash::Hash;
 use std::io::{BufRead, BufReader};
-
+use std::ops::Range;
 
 #[derive(Debug)]
 pub struct Mapping {
@@ -99,8 +101,7 @@ pub fn read_input(file_name: &str) -> (Seeds, HashMap<ResourcePair, Vec<Mapping>
 /// find location value for given seed
 fn calc_location(mut value: usize, resource_mappings: &HashMap<ResourcePair, Vec<Mapping>>) -> usize {
     for resource_pair in RESOURCE_CHAIN.into_iter() {
-        let mappings = resource_mappings.get(&resource_pair).unwrap();
-        for mapping in mappings.iter() {
+        for mapping in resource_mappings.get(&resource_pair).unwrap().iter() {
             if let Some(new_val) = mapping.map(value) {
                 value = new_val;
                 break;
@@ -117,8 +118,77 @@ fn seed_fertilizer_part_1(filename: &str) -> usize {
     seeds.iter().map(|value| calc_location(*value, &resource_mappings)).min().unwrap()
 }
 
-fn seed_fertilizer_part_2(_filename: &str) -> u32 {
+
+fn seed_fertilizer_part_2(filename: &str) -> usize {
+    let (seeds, resource_mappings) = read_input(filename);
+
+    let mut master_map = HashMap::new();
+
+    for (_pair, mappings) in resource_mappings.iter() {
+        for mapping in mappings.iter() {
+            let range = Range { start: mapping.source, end: mapping.source + mapping.len };
+            let shift = mapping.source - mapping.destination;
+
+            for value in range {
+                if contains(value, master_map.keys()) {
+
+                }
+            }
+
+
+
+            // if master_map.
+        }
+    }
+
+    // seeds.chunks(2)
+    //     .flat_map(|chunk| chunk[0]..(chunk[0] + chunk[1]))
+    //     .map(|value| calc_location(value, &resource_mappings))
+    //     .min()
+    //     .unwrap()
     todo!()
+}
+
+fn contains(value: usize, mut all: Keys<Range<usize>, usize>) -> bool {
+    all.any(|range| range.contains(&value))
+}
+
+
+enum OverlapType {
+    Contains,
+    IsContainedIn,
+    PartialLeft,
+    PartialRight,
+}
+
+
+/// 1. range:          |-----------------|
+///    current:           |----------|            (IsContainedIn)
+///
+/// 2. range:          |-----------------|
+///    current:           |--------------------|  (PartialLeft)
+///
+/// 3. range:          |-----------------|
+///    current:     |----------------|            (PartialRight)
+///
+/// 3. range:          |-----------------|
+///    current:     |----------------------|      (Contains)
+#[allow(dead_code)]
+fn overlaps(current: Range<usize>, all_ranges: Keys<Range<usize>, usize>) -> Option<(OverlapType, Range<usize>)> {
+    for range in all_ranges {
+        return Some(match current.start > range.start {
+            true => match current.end < range.end {
+                true => (OverlapType::IsContainedIn, range.clone()),
+                false => (OverlapType::PartialLeft, range.clone())
+            },
+            false => match current.end < range.end {
+                true => (OverlapType::PartialRight, range.clone()),
+                false => (OverlapType::Contains, range.clone())
+            },
+        });
+    }
+
+    None
 }
 
 #[cfg(test)]
@@ -156,7 +226,7 @@ mod tests {
         let answer = seed_fertilizer_part_2("inputs/5_input_example.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 0);
+        assert_eq!(answer, 46);
     }
 
     #[test]
