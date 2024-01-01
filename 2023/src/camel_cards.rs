@@ -196,17 +196,16 @@ pub fn read_input(file_name: &str, deck: impl Deck) -> Vec<PlayerHand> {
 fn camel_cards_part_1(filename: &str) -> u32 {
     let mut player_hands = read_input(filename, SimpleDeck);
 
-    player_hands.sort_unstable_by(|a, b| b.cmp(a));
-
-    player_hands.iter()
-        .enumerate()
-        .map(|(i, hand)| (i + 1) as u32 * hand.bid)
-        .sum()
+    solve(&mut player_hands)
 }
 
 fn camel_cards_part_2(filename: &str) -> u32 {
     let mut player_hands = read_input(filename, DeckWithJokers);
 
+    solve(&mut player_hands)
+}
+
+fn solve(player_hands: &mut Vec<PlayerHand>) -> u32 {
     player_hands.sort_unstable_by(|a, b| b.cmp(a));
 
     player_hands.iter()
