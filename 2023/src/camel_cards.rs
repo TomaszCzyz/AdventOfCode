@@ -17,10 +17,62 @@ enum HandType {
     HighCard = 6,
 }
 
+pub trait Deck {
+    fn has_jokers(&self) -> bool;
+    fn card_value(&self, ch: char) -> u8;
+}
+
+pub struct SimpleDeck;
+
+impl Deck for SimpleDeck {
+    fn has_jokers(&self) -> bool {
+        false
+    }
+
+    fn card_value(&self, ch: char) -> u8 {
+        if ch.is_digit(10) {
+            ch.to_digit(10).unwrap() as u8
+        } else {
+            match ch {
+                'T' => 10,
+                'J' => 11,
+                'Q' => 12,
+                'K' => 13,
+                'A' => 14,
+                _ => panic!()
+            }
+        }
+    }
+}
+
+pub struct DeckWithJokers;
+
+impl Deck for DeckWithJokers {
+    fn has_jokers(&self) -> bool {
+        true
+    }
+
+    fn card_value(&self, ch: char) -> u8 {
+        if ch.is_digit(10) {
+            ch.to_digit(10).unwrap() as u8
+        } else {
+            match ch {
+                'T' => 10,
+                'J' => 1,
+                'Q' => 12,
+                'K' => 13,
+                'A' => 14,
+                _ => panic!()
+            }
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct PlayerHand {
+    has_jokers: bool,
     cards: String,
-    cards_mapped: String,
+    cards_values: [u8; 5],
     bid: u32,
 }
 
@@ -42,7 +94,7 @@ impl Ord for PlayerHand {
     fn cmp(&self, other: &Self) -> Ordering {
         match self.get_hand_type().cmp(&other.get_hand_type()) {
             Ordering::Equal => {
-                for (self_char, other_char) in self.cards_mapped.chars().zip(other.cards_mapped.chars()) {
+                for (self_char, other_char) in self.cards_values.iter().zip(other.cards_values.iter()) {
                     match other_char.cmp(&self_char) {
                         Ordering::Equal => continue,
                         t => return t,
@@ -63,45 +115,61 @@ impl PlayerHand {
                 acc
             });
 
-        match char_occurrences.values().max().unwrap() {
-            5 => HandType::FiveOfKind,
-            4 => HandType::FourOfKind,
-            3 => if char_occurrences.values().any(|&x| x == 2) {
-                HandType::FullHouse
-            } else {
-                HandType::ThreeOfKind
-            },
-            2 => if char_occurrences.values().filter(|&&x| x == 2).count() == 2 {
-                HandType::TwoPairs
-            } else {
-                HandType::OnePair
-            },
-            1 => HandType::HighCard,
-            _ => panic!()
-        }
+
+        let occurrences = if self.has_jokers {
+            substitute_jokers(char_occurrences)
+        } else {
+            char_occurrences
+        };
+
+        get_hand_type_no_jokers(occurrences)
     }
 }
 
-pub fn read_input(file_name: &str) -> Vec<PlayerHand> {
+fn substitute_jokers(cards_occurrences: HashMap<char, u32>) -> HashMap<char, u32> {
+    if let Some(jokers_count) = cards_occurrences.get(&'J') {
+        let most_common_card = cards_occurrences.iter()
+            .filter(|(&ch, _)| ch != 'J')
+            .max_by(|(_, &count1), (_, &count2)| count1.cmp(&count2))
+            .map(|(&ch, _)| ch);
+
+        match most_common_card {
+            None => cards_occurrences,
+            Some(card) => {
+                let mut modified_cards_occurrences = cards_occurrences.clone();
+                modified_cards_occurrences.entry('J').and_modify(|count| *count = 0);
+                modified_cards_occurrences.entry(card).and_modify(|count| *count += *jokers_count);
+                modified_cards_occurrences
+            }
+        }
+    } else {
+        cards_occurrences
+    }
+}
+
+fn get_hand_type_no_jokers(cards_occurrences: HashMap<char, u32>) -> HandType {
+    match cards_occurrences.values().max().unwrap() {
+        5 => HandType::FiveOfKind,
+        4 => HandType::FourOfKind,
+        3 => if cards_occurrences.values().any(|&x| x == 2) {
+            HandType::FullHouse
+        } else {
+            HandType::ThreeOfKind
+        },
+        2 => if cards_occurrences.values().filter(|&&x| x == 2).count() == 2 {
+            HandType::TwoPairs
+        } else {
+            HandType::OnePair
+        },
+        1 => HandType::HighCard,
+        _ => panic!()
+    }
+}
+
+pub fn read_input(file_name: &str, deck: impl Deck) -> Vec<PlayerHand> {
     let file = File::open(file_name).unwrap();
     let mut reader = BufReader::new(file);
     let mut buf = String::new();
-
-    let char_map = HashMap::from([
-        ('2', 'A'),
-        ('3', 'B'),
-        ('4', 'C'),
-        ('5', 'D'),
-        ('6', 'E'),
-        ('7', 'F'),
-        ('8', 'G'),
-        ('9', 'H'),
-        ('T', 'I'),
-        ('J', 'J'),
-        ('Q', 'K'),
-        ('K', 'L'),
-        ('A', 'M'),
-    ]);
     let mut poker_hands = Vec::new();
 
     while let Ok(n) = reader.read_line(&mut buf) {
@@ -113,8 +181,9 @@ pub fn read_input(file_name: &str) -> Vec<PlayerHand> {
         let bid = buf[5..].trim().parse::<u32>().unwrap();
 
         poker_hands.push(PlayerHand {
+            has_jokers: deck.has_jokers(),
             cards: hand.clone(),
-            cards_mapped: hand.chars().map(|ch| char_map.get(&ch).unwrap()).collect(),
+            cards_values: hand.chars().map(|ch| deck.card_value(ch)).collect::<Vec<u8>>().try_into().unwrap(),
             bid,
         });
 
@@ -125,7 +194,7 @@ pub fn read_input(file_name: &str) -> Vec<PlayerHand> {
 }
 
 fn camel_cards_part_1(filename: &str) -> u32 {
-    let mut player_hands = read_input(filename);
+    let mut player_hands = read_input(filename, SimpleDeck);
 
     player_hands.sort_unstable_by(|a, b| b.cmp(a));
 
@@ -135,8 +204,15 @@ fn camel_cards_part_1(filename: &str) -> u32 {
         .sum()
 }
 
-fn camel_cards_part_2(_filename: &str) -> u32 {
-    todo!()
+fn camel_cards_part_2(filename: &str) -> u32 {
+    let mut player_hands = read_input(filename, DeckWithJokers);
+
+    player_hands.sort_unstable_by(|a, b| b.cmp(a));
+
+    player_hands.iter()
+        .enumerate()
+        .map(|(i, hand)| (i + 1) as u32 * hand.bid)
+        .sum()
 }
 
 #[cfg(test)]
@@ -164,7 +240,7 @@ mod tests {
         let answer = camel_cards_part_2("inputs/7_input_example.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 0);
+        assert_eq!(answer, 5905);
     }
 
     #[test]
@@ -172,6 +248,6 @@ mod tests {
         let answer = camel_cards_part_2("inputs/7_input.txt");
 
         println!("part 2 - original - answer: {:?}", answer);
-        assert_eq!(answer, 0);
+        assert_eq!(answer, 248909434);
     }
 }
