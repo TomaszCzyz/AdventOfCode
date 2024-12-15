@@ -17,27 +17,29 @@ fn read_input(file_name: &str) -> (AdjMatrix, VertexValues) {
         })
         .collect::<Vec<Vec<u32>>>();
 
+    let up = (-1, 0);
+    let down = (1, 0);
+    let left = (0, -1);
+    let right = (0, 1);
+    let directions = [up, down, left, right];
+
+    let row_max_len = map.len() as i32 - 1;
+    let col_max_len = map[0].len() as i32 - 1;
+
     let mut adj_matrix = Vec::new();
     let mut vertex_values = VertexValues::new();
     for (row_i, row) in map.iter().enumerate().map(|(i, row)| (i as i32, row)) {
         for (col_i, value) in row.iter().enumerate().map(|(j, col)| (j as i32, col)) {
-            vertex_values.insert(row_i as usize * row.len() + col_i as usize, *value);
-
             let mut edges = HashSet::new();
-            let up = (row_i - 1, col_i);
-            let down = (row_i + 1, col_i);
-            let left = (row_i, col_i - 1);
-            let right = (row_i, col_i + 1);
-            let directions = [up, down, left, right];
-
-            for &(i, j) in directions.iter() {
-                let ii = i.min(row.len() as i32 - 1).max(0);
-                let jj = j.min(map[0].len() as i32 - 1).max(0);
+            for &(row_shift, col_shift) in directions.iter() {
+                let ii = (row_i + row_shift).max(0).min(row_max_len);
+                let jj = (col_i + col_shift).max(0).min(col_max_len);
                 if map[ii as usize][jj as usize].abs_diff(*value) == 1 {
                     edges.insert(ii as usize * row.len() + jj as usize);
                 }
             }
             adj_matrix.push(Vec::from_iter(edges));
+            vertex_values.insert(row_i as usize * row.len() + col_i as usize, *value);
         }
     }
 
