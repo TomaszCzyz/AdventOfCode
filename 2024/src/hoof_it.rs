@@ -5,7 +5,7 @@ type VertexValues = HashMap<usize, u32>;
 
 type AdjMatrix = Vec<Vec<usize>>;
 
-fn read_input(file_name: &str) -> (AdjMatrix, VertexValues) {
+fn read_input(file_name: &str) -> (AdjMatrix, VertexValues, Vec<usize>) {
     let map = fs::read_to_string(file_name)
         .unwrap()
         .lines()
@@ -43,7 +43,15 @@ fn read_input(file_name: &str) -> (AdjMatrix, VertexValues) {
         }
     }
 
-    (adj_matrix, vertex_values)
+    let mut start_vertices = vertex_values
+        .iter()
+        .filter(|&(_, val)| *val == 0)
+        .map(|(i, _)| *i)
+        .collect::<Vec<usize>>();
+
+    start_vertices.sort();
+
+    (adj_matrix, vertex_values, start_vertices)
 }
 
 fn find_accessible_ends(
@@ -77,21 +85,38 @@ fn find_accessible_ends(
     reachable_ends.len()
 }
 
-fn hoof_it_part_1(filename: &str) -> usize {
-    let (adj_matrix, vertex_values) = read_input(filename);
+fn find_accessible_ends_all_trials(
+    adj_matrix: &AdjMatrix,
+    vertex_values: &VertexValues,
+    start_vertex: usize,
+) -> usize {
+    let mut visited = HashSet::new();
+    let mut reachable_ends = Vec::new();
+    let mut queue = VecDeque::new();
+    queue.push_back(start_vertex);
 
-    let mut start_vertices = vertex_values
-        .iter()
-        .filter(|&(_, val)| *val == 0)
-        .map(|(i, _)| *i)
-        .collect::<Vec<usize>>();
-    start_vertices.sort();
+    while let Some(vertex) = queue.pop_front() {
+        visited.insert(vertex);
+        let curr_value = vertex_values[&vertex];
+        if curr_value == 9 {
+            reachable_ends.push(vertex);
+            continue;
+        }
 
-    for (vertex, adj_vertices) in adj_matrix.iter().enumerate() {
-        println!("{vertex}: {:?}", adj_vertices);
+        let neighbors = adj_matrix[vertex]
+            .iter()
+            .filter(|n| vertex_values[&n] == curr_value + 1);
+
+        for neighbor in neighbors {
+            queue.push_back(*neighbor);
+        }
     }
-    println!("vertex_values: {:?}", vertex_values);
-    println!("start_vertices: {:?}", start_vertices);
+
+    reachable_ends.len()
+}
+
+fn hoof_it_part_1(filename: &str) -> usize {
+    let (adj_matrix, vertex_values, start_vertices) = read_input(filename);
 
     start_vertices
         .iter()
@@ -99,8 +124,13 @@ fn hoof_it_part_1(filename: &str) -> usize {
         .sum()
 }
 
-fn hoof_it_part_2(_filename: &str) -> usize {
-    todo!()
+fn hoof_it_part_2(filename: &str) -> usize {
+    let (adj_matrix, vertex_values, start_vertices) = read_input(filename);
+
+    start_vertices
+        .iter()
+        .map(|start| find_accessible_ends_all_trials(&adj_matrix, &vertex_values, *start))
+        .sum()
 }
 
 #[cfg(test)]
@@ -128,7 +158,23 @@ mod tests {
         let answer = hoof_it_part_2("inputs/3_input_example.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 4);
+        assert_eq!(answer, 81);
+    }
+
+    #[test]
+    fn part_2_input_example_2() {
+        let answer = hoof_it_part_2("inputs/3_input_example_2.txt");
+
+        println!("part 2 - example - answer: {:?}", answer);
+        assert_eq!(answer, 227);
+    }
+
+    #[test]
+    fn part_2_input_example_3() {
+        let answer = hoof_it_part_2("inputs/3_input_example_3.txt");
+
+        println!("part 2 - example - answer: {:?}", answer);
+        assert_eq!(answer, 3);
     }
 
     #[test]
@@ -136,6 +182,6 @@ mod tests {
         let answer = hoof_it_part_2("inputs/3_input.txt");
 
         println!("part 2 - original - answer: {:?}", answer);
-        assert_eq!(answer, 381);
+        assert_eq!(answer, 1192);
     }
 }
