@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn part_1_example_input() {
-        let answer = hoof_it_part_1("inputs/3_input_example.txt");
+        let answer = hoof_it_part_1("inputs/10_input_example.txt");
 
         println!("part 1 - example - answer: {:?}", answer);
         assert_eq!(answer, 36);
@@ -147,7 +147,7 @@ mod tests {
 
     #[test]
     fn part_1_input() {
-        let answer = hoof_it_part_1("inputs/3_input.txt");
+        let answer = hoof_it_part_1("inputs/10_input.txt");
 
         println!("part 1 - original - answer: {:?}", answer);
         assert_eq!(answer, 593);
@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn part_2_input_example() {
-        let answer = hoof_it_part_2("inputs/3_input_example.txt");
+        let answer = hoof_it_part_2("inputs/10_input_example.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
         assert_eq!(answer, 81);
@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn part_2_input_example_2() {
-        let answer = hoof_it_part_2("inputs/3_input_example_2.txt");
+        let answer = hoof_it_part_2("inputs/10_input_example_2.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
         assert_eq!(answer, 227);
@@ -171,7 +171,7 @@ mod tests {
 
     #[test]
     fn part_2_input_example_3() {
-        let answer = hoof_it_part_2("inputs/3_input_example_3.txt");
+        let answer = hoof_it_part_2("inputs/10_input_example_3.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
         assert_eq!(answer, 3);
@@ -179,7 +179,7 @@ mod tests {
 
     #[test]
     fn part_2_input() {
-        let answer = hoof_it_part_2("inputs/3_input.txt");
+        let answer = hoof_it_part_2("inputs/10_input.txt");
 
         println!("part 2 - original - answer: {:?}", answer);
         assert_eq!(answer, 1192);
