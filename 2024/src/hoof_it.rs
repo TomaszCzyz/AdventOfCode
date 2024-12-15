@@ -1,4 +1,4 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs;
 
 type VertexValues = HashMap<usize, u32>;
@@ -46,14 +46,46 @@ fn read_input(file_name: &str) -> (AdjMatrix, VertexValues) {
     (adj_matrix, vertex_values)
 }
 
+fn find_accessible_ends(
+    adj_matrix: &AdjMatrix,
+    vertex_values: &VertexValues,
+    start_vertex: usize,
+) -> usize {
+    let mut visited = HashSet::new();
+    let mut reachable_ends = HashSet::new();
+    let mut queue = VecDeque::new();
+    queue.push_back(start_vertex);
+
+    while let Some(vertex) = queue.pop_front() {
+        visited.insert(vertex);
+        let curr_value = vertex_values[&vertex];
+        if curr_value == 9 {
+            reachable_ends.insert(vertex);
+            continue;
+        }
+
+        let neighbors = adj_matrix[vertex]
+            .iter()
+            .filter(|n| !visited.contains(n))
+            .filter(|n| vertex_values[&n] == curr_value + 1);
+
+        for neighbor in neighbors {
+            queue.push_back(*neighbor);
+        }
+    }
+
+    reachable_ends.len()
+}
+
 fn hoof_it_part_1(filename: &str) -> usize {
     let (adj_matrix, vertex_values) = read_input(filename);
 
-    let start_vertices = vertex_values
+    let mut start_vertices = vertex_values
         .iter()
-        .filter(|&(i, val)| *val == 0)
+        .filter(|&(_, val)| *val == 0)
         .map(|(i, _)| *i)
         .collect::<Vec<usize>>();
+    start_vertices.sort();
 
     for (vertex, adj_vertices) in adj_matrix.iter().enumerate() {
         println!("{vertex}: {:?}", adj_vertices);
@@ -61,7 +93,10 @@ fn hoof_it_part_1(filename: &str) -> usize {
     println!("vertex_values: {:?}", vertex_values);
     println!("start_vertices: {:?}", start_vertices);
 
-    todo!()
+    start_vertices
+        .iter()
+        .map(|start| find_accessible_ends(&adj_matrix, &vertex_values, *start))
+        .sum()
 }
 
 fn hoof_it_part_2(_filename: &str) -> usize {
@@ -85,7 +120,7 @@ mod tests {
         let answer = hoof_it_part_1("inputs/3_input.txt");
 
         println!("part 1 - original - answer: {:?}", answer);
-        assert_eq!(answer, 326);
+        assert_eq!(answer, 593);
     }
 
     #[test]
