@@ -2,7 +2,7 @@ use std::fs;
 
 type Levels = Vec<i32>;
 
-pub fn read_input(file_name: &str) -> Vec<Levels> {
+fn read_input(file_name: &str) -> Vec<Levels> {
     fs::read_to_string(file_name)
         .unwrap()
         .lines()
