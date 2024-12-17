@@ -1,15 +1,21 @@
+use std::collections::{HashMap, VecDeque};
+use std::fmt::{Debug, Formatter};
 use std::fs;
 
-#[derive(Debug)]
-struct Link {
-    round_number: usize,
-    index: usize,
+type VertexValues = HashMap<usize, u32>;
+
+type AdjMatrix = Vec<Vec<usize>>;
+
+#[derive(Clone)]
+struct Node {
+    value: u64,
+    depth: usize,
 }
 
-#[derive(Debug)]
-enum Node {
-    Value(u64),
-    Link(Link),
+impl Debug for Node {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}({})", self.value, self.depth)
+    }
 }
 
 enum Result {
@@ -18,16 +24,14 @@ enum Result {
 }
 
 fn read_input(file_name: &str) -> Vec<u64> {
-    let numbers = fs::read_to_string(file_name)
+    fs::read_to_string(file_name)
         .unwrap()
         .lines()
         .next()
         .unwrap()
         .split(" ")
         .map(|val| val.parse::<u64>().unwrap())
-        .collect::<Vec<u64>>();
-
-    numbers
+        .collect::<Vec<u64>>()
 }
 
 fn apply_rules(number: u64) -> Result {
@@ -42,6 +46,22 @@ fn apply_rules(number: u64) -> Result {
             Result::TwoNumbers(left_half, right_half)
         } else {
             Result::OneNumber(number * 2024)
+        }
+    }
+}
+
+fn apply_rules_2(number: u64) -> [Option<u64>; 2] {
+    if number == 0 {
+        [Some(1), None]
+    } else {
+        let num_digits = number.ilog10() + 1;
+        if num_digits % 2 == 0 {
+            let divisor = 10u64.pow(num_digits / 2);
+            let left_half = number / divisor;
+            let right_half = number % divisor;
+            [Some(left_half), Some(right_half)]
+        } else {
+            [Some(number * 2024), None]
         }
     }
 }
@@ -81,61 +101,83 @@ fn plutonian_pebbles_part_1(filename: &str) -> usize {
     solution(numbers, 25)
 }
 
-fn find_value(rounds: &Vec<Vec<Node>>, number: u64) -> Node {
-    for (round_i, round_nodes) in rounds.iter().enumerate() {
-        let value_pos = round_nodes.iter().position(|node| match node {
-            Node::Value(v) => *v == number,
-            Node::Link(_) => false,
-        });
-
-        if let Some(pos) = value_pos {
-            return Node::Link(Link {
-                round_number: round_i,
-                index: pos,
-            });
-        }
-    }
-    Node::Value(number)
-}
-
 fn plutonian_pebbles_part_2(filename: &str, rounds_count: usize) -> usize {
     let numbers = read_input(filename);
+    // let numbers = vec![0];
 
-    let round_zero = numbers
-        .iter()
-        .map(|num| Node::Value(*num))
-        .collect::<Vec<_>>();
+    let mut adj_matrix = Vec::<Vec<usize>>::new();
+    let mut vertex_values = Vec::<Node>::new();
 
-    let mut rounds = vec![round_zero];
+    for number in numbers {
+        vertex_values.push(Node {
+            value: number,
+            depth: 0,
+        });
+        adj_matrix.push(Vec::new())
+    }
 
     for round_i in 1..rounds_count {
-        let mut current_round = Vec::<Node>::new();
-        for number in rounds[rounds.len() - 1].iter() {
-            if let Node::Value(num) = number {
-                let result = apply_rules(*num);
-                match result {
-                    Result::OneNumber(num) => {
-                        let node = find_value(&rounds, num);
-                        current_round.push(node);
+        for (node_i, node) in vertex_values
+            .clone()
+            .iter()
+            .enumerate()
+            .filter(|(_, node)| node.depth == round_i - 1)
+        {
+            let results = apply_rules_2(node.value);
+            for result in results.iter().filter_map(|&r| r) {
+                match vertex_values.iter().position(|n| n.value == result) {
+                    None => {
+                        vertex_values.push(Node {
+                            value: result,
+                            depth: round_i,
+                        });
+                        adj_matrix.push(Vec::new());
+                        adj_matrix[node_i].push(vertex_values.len() - 1);
                     }
-                    Result::TwoNumbers(left, right) => {
-                        let left_node = find_value(&rounds, left);
-                        let right_node = find_value(&rounds, right);
-                        current_round.push(left_node);
-                        current_round.push(right_node);
+                    Some(vertex_pos) => {
+                        adj_matrix[node_i].push(vertex_pos);
                     }
                 }
             }
         }
+    }
+    println!("vertex_values: {vertex_values:?}");
+    for (i, v) in adj_matrix.iter().enumerate() {
         println!(
-            "round {round_i:3} ({:3}): {:?}",
-            current_round.len(),
-            current_round
+            "{}: {:?}",
+            vertex_values[i].value,
+            v.iter()
+                .map(|j| vertex_values[*j].value)
+                .collect::<Vec<_>>()
         );
-        rounds.push(current_round);
     }
 
-    todo!()
+    let mut counter = 0;
+    for (root_vertex, root_vertex_value) in vertex_values
+        .iter()
+        .enumerate()
+        .filter(|(_, node)| node.depth == 0)
+        .map(|(i, _)| (i, vertex_values[i].value))
+    {
+        println!("bfs starting in: {root_vertex_value}");
+        let mut queue = VecDeque::from([(root_vertex, vec![root_vertex_value], 0)]);
+
+        while let Some((vertex, path, depth)) = queue.pop_front() {
+            println!("visiting {}", vertex_values[vertex].value);
+            if depth == rounds_count {
+                println!("Max depth reached! Path: {:?}", path);
+                counter += 1;
+                continue;
+            }
+
+            for neighbor in &adj_matrix[vertex] {
+                let mut new_path = path.clone();
+                new_path.push(vertex_values[*neighbor].value);
+                queue.push_back((*neighbor, new_path, depth + 1));
+            }
+        }
+    }
+    counter
 }
 
 fn brute_force(numbers: Vec<u64>, rounds_count: usize) -> usize {
@@ -157,7 +199,12 @@ fn brute_force(numbers: Vec<u64>, rounds_count: usize) -> usize {
         }
         current_values = next_values;
 
-        println!("round: {:3}: {:?}", round_i + 1, current_values);
+        println!(
+            "round: {:3} ({}): {:?}",
+            round_i + 1,
+            current_values.len(),
+            current_values
+        );
     }
 
     current_values.len()
@@ -194,7 +241,7 @@ mod tests {
 
     #[test]
     fn part_2_input() {
-        let answer = plutonian_pebbles_part_2("inputs/11_input.txt", 75);
+        let answer = plutonian_pebbles_part_2("inputs/11_input.txt", 3);
 
         println!("part 2 - original - answer: {:?}", answer);
         assert_eq!(answer, 1192);
