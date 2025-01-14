@@ -19,7 +19,8 @@ pub fn read_input(file_name: &str) -> (Vec<Choice>, Vec<NodeConnections>) {
     let mut buf = String::new();
     _ = reader.read_line(&mut buf).unwrap();
 
-    let choices = buf.chars()
+    let choices = buf.trim()
+        .chars()
         .map(|ch| if ch == 'R' { Choice::Right } else { Choice::Left })
         .collect::<Vec<_>>();
 
