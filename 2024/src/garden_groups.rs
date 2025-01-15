@@ -3,10 +3,6 @@ use itertools::Itertools;
 use std::collections::VecDeque;
 use std::fs;
 
-type AdjMatrix = Vec<Vec<usize>>;
-
-type MatrixGraph = Vec<Vec<bool>>;
-
 fn read_input(file_name: &str) -> (Vec<Vec<usize>>, Vec<char>) {
     let mut adj_list = Vec::<Vec<usize>>::new();
 
@@ -55,10 +51,10 @@ struct VertexData {
 fn garden_groups_part_1(filename: &str) -> u32 {
     let (adj_list, vertex_values) = read_input(filename);
 
-    let mut vertex_summaries = Vec::new();
     let mut area_number = 0;
-
+    let mut vertex_summaries = vec![];
     let mut visited = vec![false; adj_list.len()];
+
     while visited.iter().any(|x| !*x) {
         let unvisited = visited.iter().position(|x| !*x).unwrap();
         let mut queue = VecDeque::from([unvisited]);
