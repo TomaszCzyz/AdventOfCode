@@ -1,42 +1,79 @@
-use std::collections::{HashMap, VecDeque};
-use std::fmt::{Debug, Formatter};
+use fs::read_to_string;
+use std::collections::VecDeque;
 use std::fs;
-
-type VertexValues = HashMap<usize, u32>;
 
 type AdjMatrix = Vec<Vec<usize>>;
 
 type MatrixGraph = Vec<Vec<bool>>;
 
 fn read_input(file_name: &str) -> (Vec<Vec<usize>>, Vec<char>) {
-    let mut flower_types = Vec::<char>::new();
-    let mut matrix_graph = Vec::<Vec<usize>>::new();
+    let mut adj_list = Vec::<Vec<usize>>::new();
 
-    fs::read_to_string(file_name)
-        .unwrap()
+    let file_content = read_to_string(file_name).unwrap();
+
+    let vertex_values = file_content
         .lines()
-        .enumerate()
-        .for_each(|(row_i, line)| {
-            let mut row = Vec::new();
-            line.chars().enumerate().for_each(|(col_i, ch)| {
-                match flower_types.iter().position(|x| *x == ch) {
-                    Some(pos) => {
-                        row.push(pos);
-                    }
-                    None => {
-                        flower_types.push(ch);
-                        row.push(flower_types.len() - 1);
-                    }
-                }
-            });
-            matrix_graph.push(row);
-        });
+        .map(|l| l.chars())
+        .flatten()
+        .collect::<Vec<_>>();
 
-    (matrix_graph, flower_types)
+    let rows_count = file_content.lines().count();
+    let cols_count = file_content.lines().next().unwrap().chars().count();
+    (0..rows_count).for_each(|row_i| {
+        (0..cols_count).for_each(|col_i| {
+            let vertex_number = row_i * cols_count + col_i;
+            let mut neighbors = Vec::new();
+            if row_i != 0 {
+                neighbors.push(vertex_number - cols_count);
+            }
+
+            if row_i != rows_count - 1 {
+                neighbors.push(vertex_number + cols_count);
+            }
+
+            if col_i != 0 {
+                neighbors.push(vertex_number - 1);
+            }
+
+            if col_i != cols_count - 1 {
+                neighbors.push(vertex_number + 1);
+            }
+
+            adj_list.push(neighbors);
+        })
+    });
+
+    (adj_list, vertex_values)
 }
 
 fn garden_groups_part_1(filename: &str) -> usize {
-    let numbers = read_input(filename);
+    let (adj_list, vertex_values) = read_input(filename);
+
+    println!("vertex_values: {vertex_values:?}");
+    for (i, v) in adj_list.iter().enumerate() {
+        println!(
+            "{}: {:?}",
+            vertex_values[i],
+            v.iter().map(|j| vertex_values[*j]).collect::<Vec<_>>()
+        );
+    }
+
+    // (area, perimeter)
+    let mut vertex_summaries = vec![(0u32, 0u32); adj_list.len()];
+
+    let mut visited = vec![false; adj_list.len()];
+    while visited.iter().any(|x| !*x) {
+        let unvisited = visited.iter().position(|x| !*x).unwrap();
+        let mut queue = VecDeque::from([unvisited]);
+        while let Some(vertex) = queue.pop_front() {
+            visited[vertex] = true;
+            for neighbor in adj_list[vertex] {
+                if vertex_values[neighbor] == vertex_values[vertex] {
+                    queue.push_back(neighbor);
+                }
+            }
+        }
+    }
 
     todo!()
 }
