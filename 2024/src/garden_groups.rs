@@ -1,4 +1,5 @@
 use fs::read_to_string;
+use itertools::Itertools;
 use std::collections::VecDeque;
 use std::fs;
 
@@ -46,40 +47,63 @@ fn read_input(file_name: &str) -> (Vec<Vec<usize>>, Vec<char>) {
     (adj_list, vertex_values)
 }
 
-fn garden_groups_part_1(filename: &str) -> usize {
+struct VertexData {
+    perimeter: u32,
+    area_number: u32,
+}
+
+fn garden_groups_part_1(filename: &str) -> u32 {
     let (adj_list, vertex_values) = read_input(filename);
 
-    println!("vertex_values: {vertex_values:?}");
-    for (i, v) in adj_list.iter().enumerate() {
-        println!(
-            "{}: {:?}",
-            vertex_values[i],
-            v.iter().map(|j| vertex_values[*j]).collect::<Vec<_>>()
-        );
-    }
-
-    // (area, perimeter)
-    let mut vertex_summaries = vec![(0u32, 0u32); adj_list.len()];
+    let mut vertex_summaries = Vec::new();
+    let mut area_number = 0;
 
     let mut visited = vec![false; adj_list.len()];
     while visited.iter().any(|x| !*x) {
         let unvisited = visited.iter().position(|x| !*x).unwrap();
         let mut queue = VecDeque::from([unvisited]);
         while let Some(vertex) = queue.pop_front() {
-            visited[vertex] = true;
-            for neighbor in adj_list[vertex] {
-                if vertex_values[neighbor] == vertex_values[vertex] {
-                    queue.push_back(neighbor);
+            if visited[vertex] {
+                continue;
+            } else {
+                visited[vertex] = true;
+            }
+
+            let mut perimeter = 4;
+            for neighbor in adj_list[vertex].iter() {
+                if vertex_values[*neighbor] == vertex_values[vertex] {
+                    perimeter -= 1;
+                    queue.push_back(*neighbor);
                 }
             }
+
+            vertex_summaries.push(VertexData {
+                area_number,
+                perimeter,
+            });
         }
+
+        area_number += 1;
     }
 
-    todo!()
+    assert_eq!(vertex_summaries.len(), vertex_values.len());
+
+    vertex_summaries
+        .iter()
+        .chunk_by(|x| x.area_number)
+        .into_iter()
+        .map(|(_, group)| {
+            let vertices_data = group.collect::<Vec<_>>();
+            let perimeter = vertices_data.iter().map(|x| x.perimeter).sum::<u32>();
+            let area = vertices_data.len() as u32;
+
+            area * perimeter
+        })
+        .sum::<u32>()
 }
 
-fn garden_groups_part_2(filename: &str, rounds_count: usize) -> usize {
-    let numbers = read_input(filename);
+fn garden_groups_part_2(filename: &str) -> usize {
+    let _ = read_input(filename);
 
     todo!()
 }
@@ -92,23 +116,23 @@ mod tests {
     fn part_1_example_input_1() {
         let answer = garden_groups_part_1("inputs/12_input_example_1.txt");
 
-        println!("part 1 - example - answer: {:?}", answer);
+        println!("part 1 - example 1 - answer: {:?}", answer);
         assert_eq!(answer, 140);
     }
 
     #[test]
     fn part_1_example_input_2() {
-        let answer = garden_groups_part_1("inputs/12_input_2.txt");
+        let answer = garden_groups_part_1("inputs/12_input_example_2.txt");
 
-        println!("part 1 - original - answer: {:?}", answer);
+        println!("part 1 - example 2 - answer: {:?}", answer);
         assert_eq!(answer, 772);
     }
 
     #[test]
     fn part_1_example_input_3() {
-        let answer = garden_groups_part_1("inputs/12_input_3.txt");
+        let answer = garden_groups_part_1("inputs/12_input_example_3.txt");
 
-        println!("part 1 - original - answer: {:?}", answer);
+        println!("part 1 - example 3 - answer: {:?}", answer);
         assert_eq!(answer, 1930);
     }
 
@@ -117,6 +141,6 @@ mod tests {
         let answer = garden_groups_part_1("inputs/12_input.txt");
 
         println!("part 1 - original - answer: {:?}", answer);
-        assert_eq!(answer, 0);
+        assert_eq!(answer, 1573474);
     }
 }
