@@ -1,5 +1,4 @@
 use fs::read_to_string;
-use std::collections::VecDeque;
 use std::fs;
 
 type AdjMatrix = Vec<Vec<usize>>;
@@ -59,27 +58,27 @@ fn garden_groups_part_1(filename: &str) -> usize {
     }
 
     // (area, perimeter)
-    let mut vertex_summaries = vec![(0u32, 0u32); adj_list.len()];
+    let mut _vertex_summaries = vec![(0u32, 0u32); adj_list.len()];
 
-    let mut visited = vec![false; adj_list.len()];
-    while visited.iter().any(|x| !*x) {
-        let unvisited = visited.iter().position(|x| !*x).unwrap();
-        let mut queue = VecDeque::from([unvisited]);
-        while let Some(vertex) = queue.pop_front() {
-            visited[vertex] = true;
-            for neighbor in adj_list[vertex] {
-                if vertex_values[neighbor] == vertex_values[vertex] {
-                    queue.push_back(neighbor);
-                }
-            }
-        }
-    }
+    // let mut visited = vec![false; adj_list.len()];
+    // while visited.iter().any(|x| !*x) {
+    //     let unvisited = visited.iter().position(|x| !*x).unwrap();
+    //     let mut queue = VecDeque::from([unvisited]);
+    //     while let Some(vertex) = queue.pop_front() {
+    //         visited[vertex] = true;
+    //         for neighbor in adj_list[vertex] {
+    //             if vertex_values[neighbor] == vertex_values[vertex] {
+    //                 queue.push_back(neighbor);
+    //             }
+    //         }
+    //     }
+    // }
 
     todo!()
 }
 
-fn garden_groups_part_2(filename: &str, rounds_count: usize) -> usize {
-    let numbers = read_input(filename);
+fn garden_groups_part_2(filename: &str, _rounds_count: usize) -> usize {
+    let _ = read_input(filename);
 
     todo!()
 }
