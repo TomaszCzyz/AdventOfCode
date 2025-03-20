@@ -1,7 +1,5 @@
 use itertools::{Itertools, MinMaxResult};
 use std::fs;
-use std::thread::sleep;
-use std::time::Duration;
 
 struct Floor {
     width: i32,
@@ -111,15 +109,56 @@ fn restroom_redoubt_part_2(filename: &str, floor: &Floor) -> usize {
             .map(|robot_info| calc_position(robot_info, round_num as i32, floor))
             .collect::<Vec<_>>();
 
-        if is_possible_christmas_tree_shape_3_with_rescale(&positions, &floor) {
-            print_positions(positions.as_slice(), floor);
-            sleep(Duration::from_millis(100));
+        for pos in positions.iter() {
+            let pos_to_find = vec![
+                // row y + 1
+                Position {
+                    x: pos.x,
+                    y: pos.y + 1,
+                },
+                Position {
+                    x: pos.x - 1,
+                    y: pos.y + 1,
+                },
+                Position {
+                    x: pos.x,
+                    y: pos.y + 1,
+                },
+                Position {
+                    x: pos.x + 1,
+                    y: pos.y + 1,
+                },
+                // row y + 2
+                Position {
+                    x: pos.x + 2,
+                    y: pos.y + 2,
+                },
+                Position {
+                    x: pos.x + 1,
+                    y: pos.y + 2,
+                },
+                Position {
+                    x: pos.x,
+                    y: pos.y + 2,
+                },
+                Position {
+                    x: pos.x - 1,
+                    y: pos.y + 2,
+                },
+                Position {
+                    x: pos.x - 2,
+                    y: pos.y + 2,
+                },
+            ];
+
+            if pos_to_find.iter().all(|p| positions.contains(p)) {
+                print_positions(positions.as_slice(), floor);
+                return round_num;
+            }
         }
 
         round_num += 1;
     }
-
-    round_num
 }
 
 fn print_positions(positions: &[Position], floor: &Floor) {
@@ -134,71 +173,9 @@ fn print_positions(positions: &[Position], floor: &Floor) {
     println!();
 }
 
-fn is_christmas_tree_shape(positions: &[Position], floor: &Floor) -> bool {
-    let mut x1 = (floor.width - 1) / 2;
-    let mut x2 = (floor.width - 1) / 2;
-    let mut y = 0;
-
-    if !positions.contains(&Position { x: x1, y }) {
-        return false;
-    }
-
-    for _ in 0..(floor.height - 2) {
-        y += 1;
-        x1 -= 1;
-        x2 += 1;
-        if !positions.contains(&Position { x: x1, y }) {
-            return false;
-        }
-        if !positions.contains(&Position { x: x2, y }) {
-            return false;
-        }
-    }
-
-    positions.contains(&Position {
-        x: (floor.width - 1) / 2,
-        y: floor.height - 1,
-    })
-}
-
-fn is_possible_christmas_tree_shape(positions: &Vec<Position>) -> bool {
-    for pos in positions.iter() {
-        if positions
-            .iter()
-            .filter(|p| *p != pos)
-            .all(|other_pos| !is_close(pos, other_pos))
-        {
-            return false;
-        }
-    }
-
-    true
-}
-
-fn is_possible_christmas_tree_shape_2(positions: &Vec<Position>, floor: &Floor) -> bool {
-    let half_width = (floor.width - 1) / 2;
-    let has_root = positions
-        .iter()
-        .any(|pos| pos.x == half_width && pos.y == floor.height - 1);
-
-    if !has_root {
-        return false;
-    }
-
-    let is_in_side_triangles = positions
-        .iter()
-        .any(|pos| (pos.x < half_width - pos.y) || (pos.x > half_width + pos.y));
-
-    if is_in_side_triangles {
-        return false;
-    }
-
-    true
-}
-
 fn is_possible_christmas_tree_shape_3_with_rescale(
     positions: &Vec<Position>,
-    floor: &Floor,
+    _floor: &Floor,
 ) -> bool {
     let x_min_max = positions.iter().map(|pos| pos.x).minmax();
     let y_min_max = positions.iter().map(|pos| pos.y).minmax();
@@ -276,28 +253,7 @@ mod tests {
     }
 
     #[test]
-    fn is_christmas_tree_shape_test() {
-        let positions = vec![
-            Position { x: 5, y: 0 },
-            Position { x: 4, y: 1 },
-            Position { x: 6, y: 1 },
-            Position { x: 3, y: 2 },
-            Position { x: 7, y: 2 },
-            Position { x: 2, y: 3 },
-            Position { x: 8, y: 3 },
-            Position { x: 1, y: 4 },
-            Position { x: 9, y: 4 },
-            Position { x: 0, y: 5 },
-            Position { x: 10, y: 5 },
-            Position { x: 5, y: 6 },
-        ];
-        let answer = is_christmas_tree_shape(positions.as_slice(), &INPUT_EXAMPLE_FLOOR);
-
-        assert_eq!(answer, true);
-    }
-
-    #[test]
-    fn is_possible_christmas_tree_shape_2_test() {
+    fn is_possible_christmas_tree_shape_3_test() {
         let positions = vec![
             Position { x: 5, y: 0 },
             Position { x: 4, y: 1 },
@@ -313,9 +269,6 @@ mod tests {
             Position { x: 5, y: 6 },
             // Position { x: 4, y: 0 },
         ];
-        let answer = is_possible_christmas_tree_shape_2(&positions, &INPUT_EXAMPLE_FLOOR);
-
-        assert_eq!(answer, true);
 
         let answer = is_possible_christmas_tree_shape_3(&positions, &INPUT_EXAMPLE_FLOOR);
         assert_eq!(answer, true);
@@ -333,49 +286,9 @@ mod tests {
             Position { x: 3, y: 4 },
         ];
 
-        let answer = is_possible_christmas_tree_shape_3_with_rescale(&positions, &INPUT_EXAMPLE_FLOOR);
+        let answer =
+            is_possible_christmas_tree_shape_3_with_rescale(&positions, &INPUT_EXAMPLE_FLOOR);
         assert_eq!(answer, true);
-    }
-
-    #[test]
-    fn is_possible_christmas_tree_shape_test() {
-        let mut positions = vec![
-            Position { x: 2, y: 0 },
-            Position { x: 1, y: 1 },
-            Position { x: 3, y: 1 },
-            Position { x: 0, y: 2 },
-            Position { x: 4, y: 2 },
-            Position { x: 1, y: 3 },
-            Position { x: 3, y: 3 },
-            Position { x: 2, y: 4 },
-        ];
-        print_positions(positions.as_slice(), &INPUT_EXAMPLE_FLOOR);
-        let answer = is_possible_christmas_tree_shape(&positions);
-        assert_eq!(answer, true);
-
-        positions.push(Position { x: 4, y: 5 });
-        print_positions(positions.as_slice(), &INPUT_EXAMPLE_FLOOR);
-        let answer = is_possible_christmas_tree_shape(&positions);
-        assert_eq!(answer, false);
-    }
-
-    #[test]
-    fn is_possible_christmas_tree_shape_test_2() {
-        let mut positions = vec![
-            Position { x: 2, y: 0 },
-            Position { x: 1, y: 1 },
-            Position { x: 3, y: 1 },
-            Position { x: 0, y: 2 },
-            Position { x: 4, y: 2 },
-            Position { x: 1, y: 3 },
-            Position { x: 3, y: 3 },
-            Position { x: 2, y: 4 },
-            Position { x: 4, y: 5 },
-        ];
-
-        print_positions(positions.as_slice(), &INPUT_EXAMPLE_FLOOR);
-        let answer = is_possible_christmas_tree_shape(&positions);
-        assert_eq!(answer, false);
     }
 
     #[test]
@@ -396,10 +309,8 @@ mod tests {
 
     #[test]
     fn part_2_input_example() {
-        let answer = restroom_redoubt_part_2("inputs/14_input_example.txt", &INPUT_EXAMPLE_FLOOR);
-
-        println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 875318608908);
+        // example has no answer
+        assert_eq!(true, true);
     }
 
     #[test]
@@ -407,6 +318,6 @@ mod tests {
         let answer = restroom_redoubt_part_2("inputs/14_input.txt", &INPUT_FLOOR);
 
         println!("part 2 - original - answer: {:?}", answer);
-        assert_eq!(answer, 99423413811305);
+        assert_eq!(answer, 6493);
     }
 }
