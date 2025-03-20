@@ -19,14 +19,6 @@ struct Position {
     y: i32,
 }
 
-#[derive(Debug)]
-enum Quadrant {
-    I,
-    II,
-    III,
-    IV,
-}
-
 fn read_input(file_name: &str) -> Vec<RobotInfo> {
     fs::read_to_string(file_name)
         .unwrap()
@@ -77,26 +69,24 @@ fn restroom_redoubt_part_1(filename: &str, floor: &Floor) -> i32 {
         .map(|robot_info| calc_position(robot_info, total_rounds, floor))
         .map(|position| {
             if position.x < half_width && position.y < half_height {
-                Some(Quadrant::I)
+                Some(0usize)
             } else if position.x > half_width && position.y < half_height {
-                Some(Quadrant::II)
+                Some(1)
             } else if position.x < half_width && position.y > half_height {
-                Some(Quadrant::III)
+                Some(2)
             } else if position.x > half_width && position.y > half_height {
-                Some(Quadrant::IV)
+                Some(3)
             } else {
                 None
             }
         })
         .filter_map(|quadrant| quadrant)
-        .fold((0, 0, 0, 0), |acc, quadrant| match quadrant {
-            Quadrant::I => (acc.0 + 1, acc.1, acc.2, acc.3),
-            Quadrant::II => (acc.0, acc.1 + 1, acc.2, acc.3),
-            Quadrant::III => (acc.0, acc.1, acc.2 + 1, acc.3),
-            Quadrant::IV => (acc.0, acc.1, acc.2, acc.3 + 1),
+        .fold([0, 0, 0, 0], |mut acc, quadrant| {
+            acc[quadrant] += 1;
+            acc
         });
 
-    positions.0 * positions.1 * positions.2 * positions.3
+    positions[0] * positions[1] * positions[2] * positions[3]
 }
 
 fn restroom_redoubt_part_2(filename: &str, floor: &Floor) -> usize {
