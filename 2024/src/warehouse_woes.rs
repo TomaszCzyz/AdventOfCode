@@ -1,313 +1,253 @@
-use itertools::{Itertools, MinMaxResult};
+use std::cmp::PartialEq;
+use std::collections::HashMap;
+use std::fmt::Display;
 use std::fs;
 
-struct Floor {
-    width: i32,
-    height: i32,
+const T_A: f64 = 3.;
+const T_B: f64 = 1.;
+
+#[derive(Debug, PartialEq, Eq, Hash)]
+enum ObstacleType {
+    Box,
+    Wall,
 }
 
-#[derive(Debug)]
-struct RobotInfo {
-    pos: Position,
-    v_x: i32,
-    v_y: i32,
+#[derive(Debug, PartialEq, Eq)]
+enum Direction {
+    Up,
+    Down,
+    Left,
+    Right,
 }
 
-#[derive(Debug, Eq, PartialEq, Copy, Clone)]
+impl Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Direction::Up => write!(f, "^"),
+            Direction::Down => write!(f, "v"),
+            Direction::Left => write!(f, "<"),
+            Direction::Right => write!(f, ">"),
+        }
+    }
+}
+
+#[derive(Hash, Eq, PartialEq, Debug)]
 struct Position {
-    x: i32,
-    y: i32,
+    row: usize,
+    col: usize,
 }
 
-fn read_input(file_name: &str) -> Vec<RobotInfo> {
+impl Position {
+    fn move_to(&self, direction: &Direction) -> Position {
+        match direction {
+            Direction::Up => Position {
+                row: self.row - 1,
+                col: self.col,
+            },
+            Direction::Down => Position {
+                row: self.row + 1,
+                col: self.col,
+            },
+            Direction::Left => Position {
+                row: self.row,
+                col: self.col - 1,
+            },
+            Direction::Right => Position {
+                row: self.row,
+                col: self.col + 1,
+            },
+        }
+    }
+}
+
+fn read_input(file_name: &str) -> (HashMap<Position, ObstacleType>, Position, Vec<Direction>) {
+    let mut obstacles = HashMap::new();
+    let mut robot_pos = Position { row: 0, col: 0 };
+
     fs::read_to_string(file_name)
         .unwrap()
         .lines()
-        .map(|line| {
-            let coords = line
-                .split_whitespace()
-                .map(|x| {
-                    let coords = x
-                        .get(2..)
-                        .unwrap()
-                        .split(',')
-                        .map(|x| x.parse::<i32>().unwrap())
-                        .collect::<Vec<_>>();
-
-                    (coords[0], coords[1])
-                })
-                .collect::<Vec<_>>();
-
-            RobotInfo {
-                pos: Position {
-                    x: coords[0].0,
-                    y: coords[0].1,
-                },
-                v_x: coords[1].0,
-                v_y: coords[1].1,
-            }
-        })
-        .collect::<Vec<_>>()
-}
-
-fn calc_position(robot_info: &RobotInfo, round_num: i32, floor: &Floor) -> Position {
-    let x = (robot_info.pos.x + robot_info.v_x * round_num).rem_euclid(floor.width);
-    let y = (robot_info.pos.y + robot_info.v_y * round_num).rem_euclid(floor.height);
-
-    Position { x, y }
-}
-
-fn restroom_redoubt_part_1(filename: &str, floor: &Floor) -> i32 {
-    let inputs = read_input(filename);
-
-    let total_rounds = 100;
-    let half_width = (floor.width - 1) / 2;
-    let half_height = (floor.height - 1) / 2;
-
-    let positions = inputs
-        .iter()
-        .map(|robot_info| calc_position(robot_info, total_rounds, floor))
-        .map(|position| {
-            if position.x < half_width && position.y < half_height {
-                Some(0usize)
-            } else if position.x > half_width && position.y < half_height {
-                Some(1)
-            } else if position.x < half_width && position.y > half_height {
-                Some(2)
-            } else if position.x > half_width && position.y > half_height {
-                Some(3)
-            } else {
-                None
-            }
-        })
-        .filter_map(|quadrant| quadrant)
-        .fold([0, 0, 0, 0], |mut acc, quadrant| {
-            acc[quadrant] += 1;
-            acc
+        .enumerate()
+        .take_while(|(_, line)| !line.is_empty())
+        .for_each(|(row_i, line)| {
+            line.chars().enumerate().for_each(|(col_i, c)| match c {
+                'O' => {
+                    obstacles.insert(
+                        Position {
+                            row: row_i,
+                            col: col_i,
+                        },
+                        ObstacleType::Box,
+                    );
+                }
+                '#' => {
+                    obstacles.insert(
+                        Position {
+                            row: row_i,
+                            col: col_i,
+                        },
+                        ObstacleType::Wall,
+                    );
+                }
+                '@' => {
+                    robot_pos = Position {
+                        row: row_i,
+                        col: col_i,
+                    };
+                }
+                '.' => {}
+                _ => panic!("invalid character: {}", c),
+            })
         });
 
-    positions[0] * positions[1] * positions[2] * positions[3]
+    let directions = fs::read_to_string(file_name)
+        .unwrap()
+        .lines()
+        .skip_while(|line| !line.is_empty())
+        .flat_map(|line| {
+            line.chars()
+                .map(|c| match c {
+                    '>' => Direction::Right,
+                    '<' => Direction::Left,
+                    '^' => Direction::Up,
+                    'v' => Direction::Down,
+                    _ => panic!("invalid character: {}", c),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>();
+
+    (obstacles, robot_pos, directions)
 }
 
-fn restroom_redoubt_part_2(filename: &str, floor: &Floor) -> usize {
-    let inputs = read_input(filename);
+fn warehouse_woes_part_1(filename: &str) -> usize {
+    let (mut map, mut robot_pos, directions) = read_input(filename);
 
-    let mut round_num = 1usize;
-    loop {
-        let positions = inputs
-            .iter()
-            .map(|robot_info| calc_position(robot_info, round_num as i32, floor))
-            .collect::<Vec<_>>();
+    for direction in directions {
+        // println!("Move {:}:", direction);
+        try_move(&mut map, &mut robot_pos, &direction, true);
+    }
+    print_map(&map, &robot_pos);
 
-        for pos in positions.iter() {
-            let pos_to_find = vec![
-                // row y + 1
-                Position {
-                    x: pos.x,
-                    y: pos.y + 1,
-                },
-                Position {
-                    x: pos.x - 1,
-                    y: pos.y + 1,
-                },
-                Position {
-                    x: pos.x,
-                    y: pos.y + 1,
-                },
-                Position {
-                    x: pos.x + 1,
-                    y: pos.y + 1,
-                },
-                // row y + 2
-                Position {
-                    x: pos.x + 2,
-                    y: pos.y + 2,
-                },
-                Position {
-                    x: pos.x + 1,
-                    y: pos.y + 2,
-                },
-                Position {
-                    x: pos.x,
-                    y: pos.y + 2,
-                },
-                Position {
-                    x: pos.x - 1,
-                    y: pos.y + 2,
-                },
-                Position {
-                    x: pos.x - 2,
-                    y: pos.y + 2,
-                },
-            ];
+    map.iter()
+        .filter(|&(_, o)| *o == ObstacleType::Box)
+        .map(|(pos, _)| pos.row * 100 + pos.col)
+        .sum()
+}
 
-            if pos_to_find.iter().all(|p| positions.contains(p)) {
-                print_positions(positions.as_slice(), floor);
-                return round_num;
+fn get_map_boundaries(map: &HashMap<Position, ObstacleType>) -> (usize, usize) {
+    let max_row = map.keys().map(|p| p.row).max().unwrap_or(0);
+    let max_col = map.keys().map(|p| p.col).max().unwrap_or(0);
+    (max_row, max_col)
+}
+
+fn print_map(map: &HashMap<Position, ObstacleType>, robot_pos: &Position) {
+    let (max_row, max_col) = get_map_boundaries(map);
+
+    for row in 0..=max_row {
+        for col in 0..=max_col {
+            let pos = Position { row, col };
+            if pos == *robot_pos {
+                print!("@");
+            } else if let Some(obstacle) = map.get(&pos) {
+                match obstacle {
+                    ObstacleType::Wall => print!("#"),
+                    ObstacleType::Box => print!("O"),
+                }
+            } else {
+                print!(".");
             }
         }
-
-        round_num += 1;
-    }
-}
-
-fn print_positions(positions: &[Position], floor: &Floor) {
-    let mut grid = vec![vec!['.'; floor.width as usize]; floor.height as usize];
-    for pos in positions {
-        grid[pos.y as usize][pos.x as usize] = 'O';
-    }
-
-    for row in grid {
-        println!("{}", row.iter().collect::<String>());
+        println!();
     }
     println!();
 }
 
-fn is_possible_christmas_tree_shape_3_with_rescale(
-    positions: &Vec<Position>,
-    _floor: &Floor,
+fn try_move(
+    map: &mut HashMap<Position, ObstacleType>,
+    current_pos: &mut Position,
+    direction: &Direction,
+    is_robot: bool,
 ) -> bool {
-    let x_min_max = positions.iter().map(|pos| pos.x).minmax();
-    let y_min_max = positions.iter().map(|pos| pos.y).minmax();
-    match x_min_max {
-        MinMaxResult::MinMax(x_min, x_max) => match y_min_max {
-            MinMaxResult::MinMax(y_min, y_max) => {
-                let rescaled_positions = positions
-                    .iter()
-                    .map(|pos| Position {
-                        x: pos.x - x_min,
-                        y: pos.y - y_min,
-                    })
-                    .collect::<Vec<_>>();
+    let next_position = current_pos.move_to(direction);
 
-                is_possible_christmas_tree_shape_3(
-                    &rescaled_positions,
-                    &Floor {
-                        width: x_max - x_min + 1,
-                        height: y_max - y_min + 1,
-                    },
-                )
+    match map.get(&next_position) {
+        None => {
+            if is_robot {
+                *current_pos = next_position;
+            } else {
+                map.remove_entry(&current_pos);
+                map.insert(next_position, ObstacleType::Box);
             }
-            _ => unreachable!(),
-        },
-        _ => unreachable!(),
-    }
-}
+            true
+        }
+        Some(obstacle_type) => {
+            let mut obstacle_pos = next_position;
+            if *obstacle_type == ObstacleType::Wall {
+                false
+            } else {
+                let can_move = try_move(map, &mut obstacle_pos, direction, false);
+                if can_move {
+                    map.remove_entry(&obstacle_pos);
+                    map.insert(obstacle_pos.move_to(direction), ObstacleType::Box);
 
-fn is_possible_christmas_tree_shape_3(positions: &Vec<Position>, floor: &Floor) -> bool {
-    for pos in positions.iter() {
-        let mirror_pos = Position {
-            x: floor.width - 1 - pos.x,
-            y: pos.y,
-        };
-
-        if !positions.contains(&mirror_pos) {
-            return false;
+                    if is_robot {
+                        *current_pos = obstacle_pos;
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
         }
     }
-
-    true
 }
 
-fn is_close(pos: &Position, other_pos: &Position) -> bool {
-    (pos.y - other_pos.y).abs() <= 1 && (pos.x - other_pos.x).abs() <= 1
+fn warehouse_woes_part_2(filename: &str) -> u64 {
+    let _inputs = read_input(filename);
+
+    todo!()
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    const INPUT_FLOOR: Floor = Floor {
-        width: 101,
-        height: 103,
-    };
-
-    const INPUT_EXAMPLE_FLOOR: Floor = Floor {
-        width: 11,
-        height: 7,
-    };
-
     #[test]
-    fn calc_position_test() {
-        let answer = calc_position(
-            &RobotInfo {
-                pos: Position { x: 2, y: 4 },
-                v_x: 2,
-                v_y: -3,
-            },
-            5,
-            &INPUT_EXAMPLE_FLOOR,
-        );
-
-        assert_eq!(answer, Position { x: 1, y: 3 });
+    fn read_input_test() {
+        // let (map, directions) = read_input("inputs/15_input.txt");
+        // println!("{:?}", directions.len())
     }
 
     #[test]
-    fn is_possible_christmas_tree_shape_3_test() {
-        let positions = vec![
-            Position { x: 5, y: 0 },
-            Position { x: 4, y: 1 },
-            Position { x: 6, y: 1 },
-            Position { x: 3, y: 2 },
-            Position { x: 7, y: 2 },
-            Position { x: 2, y: 3 },
-            Position { x: 8, y: 3 },
-            Position { x: 1, y: 4 },
-            Position { x: 9, y: 4 },
-            Position { x: 0, y: 5 },
-            Position { x: 10, y: 5 },
-            Position { x: 5, y: 6 },
-            // Position { x: 4, y: 0 },
-        ];
-
-        let answer = is_possible_christmas_tree_shape_3(&positions, &INPUT_EXAMPLE_FLOOR);
-        assert_eq!(answer, true);
-    }
-
-    #[test]
-    fn is_possible_christmas_tree_shape_3_with_rescale_test() {
-        let positions = vec![
-            Position { x: 2, y: 1 },
-            Position { x: 1, y: 2 },
-            Position { x: 2, y: 2 },
-            Position { x: 3, y: 2 },
-            Position { x: 2, y: 3 },
-            Position { x: 1, y: 4 },
-            Position { x: 3, y: 4 },
-        ];
-
-        let answer =
-            is_possible_christmas_tree_shape_3_with_rescale(&positions, &INPUT_EXAMPLE_FLOOR);
-        assert_eq!(answer, true);
-    }
-
-    #[test]
-    fn part_1_example_input() {
-        let answer = restroom_redoubt_part_1("inputs/14_input_example.txt", &INPUT_EXAMPLE_FLOOR);
+    fn part_1_input_example_2() {
+        let answer = warehouse_woes_part_1("inputs/15_input_example_2.txt");
 
         println!("part 1 - example - answer: {:?}", answer);
-        assert_eq!(answer, 12);
+        assert_eq!(answer, 10092);
     }
 
     #[test]
     fn part_1_input() {
-        let answer = restroom_redoubt_part_1("inputs/14_input.txt", &INPUT_FLOOR);
+        let answer = warehouse_woes_part_1("inputs/15_input.txt");
 
         println!("part 1 - original - answer: {:?}", answer);
-        assert_eq!(answer, 228457125);
+        assert_eq!(answer, 1456590);
     }
 
     #[test]
     fn part_2_input_example() {
-        // example has no answer
-        assert_eq!(true, true);
+        let answer = warehouse_woes_part_2("inputs/15_input_example.txt");
+
+        println!("part 2 - example - answer: {:?}", answer);
+        assert_eq!(answer, 875318608908);
     }
 
     #[test]
     fn part_2_input() {
-        let answer = restroom_redoubt_part_2("inputs/14_input.txt", &INPUT_FLOOR);
+        let answer = warehouse_woes_part_2("inputs/15_input.txt");
 
         println!("part 2 - original - answer: {:?}", answer);
-        assert_eq!(answer, 6493);
+        assert_eq!(answer, 99423413811305);
     }
 }
