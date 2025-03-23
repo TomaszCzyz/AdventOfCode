@@ -3,9 +3,6 @@ use std::collections::HashMap;
 use std::fmt::Display;
 use std::fs;
 
-const T_A: f64 = 3.;
-const T_B: f64 = 1.;
-
 #[derive(Debug, PartialEq, Eq, Hash)]
 enum ObstacleType {
     Box,
@@ -60,6 +57,25 @@ impl Position {
     }
 }
 
+fn read_directions(file_name: &str) -> Vec<Direction> {
+    fs::read_to_string(file_name)
+        .unwrap()
+        .lines()
+        .skip_while(|line| !line.is_empty())
+        .flat_map(|line| {
+            line.chars()
+                .map(|c| match c {
+                    '>' => Direction::Right,
+                    '<' => Direction::Left,
+                    '^' => Direction::Up,
+                    'v' => Direction::Down,
+                    _ => panic!("invalid character: {}", c),
+                })
+                .collect::<Vec<_>>()
+        })
+        .collect::<Vec<_>>()
+}
+
 fn read_input(file_name: &str) -> (HashMap<Position, ObstacleType>, Position, Vec<Direction>) {
     let mut obstacles = HashMap::new();
     let mut robot_pos = Position { row: 0, col: 0 };
@@ -100,22 +116,70 @@ fn read_input(file_name: &str) -> (HashMap<Position, ObstacleType>, Position, Ve
             })
         });
 
-    let directions = fs::read_to_string(file_name)
+    let directions = read_directions(file_name);
+
+    (obstacles, robot_pos, directions)
+}
+
+fn read_input_2(file_name: &str) -> (HashMap<Position, usize>, Position, Vec<Direction>) {
+    let mut obstacles = HashMap::new();
+    let mut robot_pos = Position { row: 0, col: 0 };
+    let mut obstacle_num = 1; // 0 is reserved for Walls
+
+    fs::read_to_string(file_name)
         .unwrap()
         .lines()
-        .skip_while(|line| !line.is_empty())
-        .flat_map(|line| {
-            line.chars()
-                .map(|c| match c {
-                    '>' => Direction::Right,
-                    '<' => Direction::Left,
-                    '^' => Direction::Up,
-                    'v' => Direction::Down,
-                    _ => panic!("invalid character: {}", c),
-                })
-                .collect::<Vec<_>>()
-        })
-        .collect::<Vec<_>>();
+        .enumerate()
+        .take_while(|(_, line)| !line.is_empty())
+        .for_each(|(row_i, line)| {
+            let mut row_obstacles_num = 0;
+            line.chars().enumerate().for_each(|(col_i, c)| match c {
+                'O' => {
+                    obstacles.insert(
+                        Position {
+                            row: row_i,
+                            col: 2 * col_i,
+                        },
+                        obstacle_num,
+                    );
+                    obstacles.insert(
+                        Position {
+                            row: row_i,
+                            col: 2 * col_i + 1,
+                        },
+                        obstacle_num + 1,
+                    );
+                    obstacle_num += 2;
+                    row_obstacles_num += 1;
+                }
+                '#' => {
+                    obstacles.insert(
+                        Position {
+                            row: row_i,
+                            col: 2 * col_i,
+                        },
+                        0,
+                    );
+                    obstacles.insert(
+                        Position {
+                            row: row_i,
+                            col: 2 * col_i + 1,
+                        },
+                        0,
+                    );
+                }
+                '@' => {
+                    robot_pos = Position {
+                        row: row_i,
+                        col: 2 * row_obstacles_num + 1 + col_i,
+                    };
+                }
+                '.' => {}
+                _ => panic!("invalid character: {}", c),
+            })
+        });
+
+    let directions = read_directions(file_name);
 
     (obstacles, robot_pos, directions)
 }
@@ -153,6 +217,35 @@ fn print_map(map: &HashMap<Position, ObstacleType>, robot_pos: &Position) {
                 match obstacle {
                     ObstacleType::Wall => print!("#"),
                     ObstacleType::Box => print!("O"),
+                }
+            } else {
+                print!(".");
+            }
+        }
+        println!();
+    }
+    println!();
+}
+
+fn print_map_2(map: &HashMap<Position, usize>, robot_pos: &Position) {
+    let max_row = map.keys().map(|p| p.row).max().unwrap_or(0);
+    let max_col = map.keys().map(|p| p.col).max().unwrap_or(0);
+
+    for row in 0..=max_row {
+        for col in 0..=max_col {
+            let pos = Position { row, col };
+            if pos == *robot_pos {
+                print!("@");
+            } else if let Some(obstacle) = map.get(&pos) {
+                match obstacle {
+                    0 => print!("#"),
+                    x => {
+                        if x % 2 == 0 {
+                            print!("]");
+                        } else {
+                            print!("[");
+                        }
+                    }
                 }
             } else {
                 print!(".");
@@ -204,8 +297,9 @@ fn try_move(
 }
 
 fn warehouse_woes_part_2(filename: &str) -> u64 {
-    let _inputs = read_input(filename);
+    let (map, robot_pos, directions) = read_input_2(filename);
 
+    print_map_2(&map, &robot_pos);
     todo!()
 }
 
@@ -237,7 +331,7 @@ mod tests {
 
     #[test]
     fn part_2_input_example() {
-        let answer = warehouse_woes_part_2("inputs/15_input_example.txt");
+        let answer = warehouse_woes_part_2("inputs/15_input_example_3.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
         assert_eq!(answer, 875318608908);
