@@ -6,3 +6,4 @@ mod red_nosed_reports;
 mod garden_groups;
 mod claw_contraption;
 mod restroom_redoubt;
+mod warehouse_woes;
