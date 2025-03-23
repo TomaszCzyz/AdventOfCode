@@ -28,7 +28,7 @@ impl Display for Direction {
     }
 }
 
-#[derive(Hash, Eq, PartialEq, Debug)]
+#[derive(Hash, Eq, PartialEq, Debug, Copy, Clone)]
 struct Position {
     row: usize,
     col: usize,
@@ -299,8 +299,101 @@ fn try_move(
 fn warehouse_woes_part_2(filename: &str) -> u64 {
     let (map, robot_pos, directions) = read_input_2(filename);
 
+    for direction in directions {
+        // try_move(&mut map, &mut robot_pos, &direction, true);
+        // println!("Move {:}:", direction);
+        print_map_2(&map, &robot_pos);
+    }
+
     print_map_2(&map, &robot_pos);
     todo!()
+}
+
+fn can_move_robot(
+    map: &mut HashMap<Position, usize>,
+    current_pos: &Position,
+    direction: &Direction,
+) -> bool {
+    let next_position = current_pos.move_to(direction);
+
+    match map.get(&next_position) {
+        None => true,
+        Some(obstacle_num) => {
+            let mut obstacle_pos = next_position;
+            if *obstacle_num == 0 {
+                false
+            } else {
+                can_move_box(map, &mut obstacle_pos, direction)
+            }
+        }
+    }
+}
+
+fn can_move_box(
+    map: &mut HashMap<Position, usize>,
+    current_pos: &Position,
+    direction: &Direction,
+) -> bool {
+    let box_positions = get_box_positions(map, &current_pos);
+    
+    match direction {
+        Direction::Up => {
+            
+        }
+        Direction::Down => {}
+        Direction::Left => {}
+        Direction::Right => {}
+    }
+    
+    let next_position = current_pos.move_to(direction);
+
+    match map.get(&next_position) {
+        None => true,
+        Some(obstacle_num) => {
+            let mut obstacle_pos = next_position;
+            if *obstacle_num == 0 {
+                false
+            } else {
+                let can_move = try_move(map, &mut obstacle_pos, direction, false);
+                if can_move {
+                    map.remove_entry(&obstacle_pos);
+                    map.insert(obstacle_pos.move_to(direction), ObstacleType::Box);
+
+                    if is_robot {
+                        *current_pos = obstacle_pos;
+                    }
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
+}
+
+fn get_box_positions(map: &mut HashMap<Position, usize>, current_pos: &Position) -> [Position; 2] {
+    let pos_to_left = Position {
+        row: current_pos.row,
+        col: current_pos.col - 1,
+    };
+
+    let pos_to_right = Position {
+        row: current_pos.row,
+        col: current_pos.col + 1,
+    };
+
+    let box_num = map.get(&current_pos).unwrap();
+    let box_num_to_left = map.get(&pos_to_left);
+
+    if let Some(box_num_to_left) = box_num_to_left {
+        if box_num_to_left == box_num {
+            [pos_to_left, *current_pos]
+        } else {
+            [*current_pos, pos_to_right]
+        }
+    } else {
+        unreachable!()
+    }
 }
 
 #[cfg(test)]
