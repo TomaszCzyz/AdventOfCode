@@ -23,3 +23,4 @@ pub mod monkey_math;
 pub mod monkey_map;
 pub mod unstable_diffusion;
 pub mod blizzard_basin;
+pub mod tuning_trouble_2;

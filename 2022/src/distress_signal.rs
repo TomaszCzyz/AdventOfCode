@@ -47,7 +47,7 @@ impl TreeItem for Node {
         };
         write!(f, "{}", style.paint(text))
     }
-    fn children(&self) -> Cow<[Self::Child]> {
+    fn children(&'_ self) -> Cow<'_, [Self::Child]> {
         Cow::from(self.children.clone())
     }
 }

@@ -146,7 +146,7 @@ pub fn monkey_in_the_middle(file_name: &str, round_count: usize, decrease_strate
     for round in 1..=round_count {
         for id in 0..monkeys.len() {
             let mut items_to_throw = Vec::new();
-            let mut monkey = &mut monkeys[id];
+            let monkey = &mut monkeys[id];
 
             for item in monkey.items.iter() {
                 monkey.inspects_counter += 1;
