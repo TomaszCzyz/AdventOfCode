@@ -1,6 +1,5 @@
-use itertools::Itertools;
 use std::cmp::PartialEq;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Display;
 use std::fs;
 
@@ -26,15 +25,6 @@ impl Display for Direction {
             Direction::Left => write!(f, "<"),
             Direction::Right => write!(f, ">"),
         }
-    }
-}
-
-fn move_to(pos: (usize, usize), direction: &Direction) -> (usize, usize) {
-    match direction {
-        Direction::Up => (pos.0 - 1, pos.1),
-        Direction::Down => (pos.0 + 1, pos.1),
-        Direction::Left => (pos.0, pos.1 - 1),
-        Direction::Right => (pos.0, pos.1 + 1),
     }
 }
 
@@ -64,11 +54,38 @@ fn read_input(file_name: &str) -> Vec<Vec<Tile>> {
         .collect::<Vec<_>>()
 }
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+struct Pos {
+    row: usize,
+    col: usize,
+}
+
+impl Pos {
+    fn move_to(&self, direction: &Direction) -> Pos {
+        match direction {
+            Direction::Up => Pos {
+                row: self.row - 1,
+                col: self.col,
+            },
+            Direction::Down => Pos {
+                row: self.row + 1,
+                col: self.col,
+            },
+            Direction::Left => Pos {
+                row: self.row,
+                col: self.col - 1,
+            },
+            Direction::Right => Pos {
+                row: self.row,
+                col: self.col + 1,
+            },
+        }
+    }
+}
+
 fn convert_to_tree(map: &Map) -> AdjList {
     let map_len = map.len();
     let map_width = map[0].len();
-    let start_x = 1;
-    let start_y = map_len - 2;
 
     // find all vertices that are crossroads
     let mut crossroads_pos = Vec::new();
@@ -133,6 +150,27 @@ fn print_map(map: &Map) {
     }
 }
 
+fn print_path(map: &Map, path: &HashSet<Pos>) {
+    for (row_idx, row) in map.iter().enumerate() {
+        for (col_idx, tile) in row.iter().enumerate() {
+            if path.contains(&Pos {
+                row: row_idx,
+                col: col_idx,
+            }) {
+                print!("*");
+                continue;
+            }
+            match tile {
+                Tile::Wall => print!("#"),
+                Tile::Road => print!("."),
+                Tile::Start => print!("S"),
+                Tile::End => print!("E"),
+            }
+        }
+        println!();
+    }
+}
+
 fn print_map_with_crossroads(map: &Map, crossroads: &Vec<(usize, usize)>) {
     for (row_idx, row) in map.iter().enumerate() {
         for (col_idx, tile) in row.iter().enumerate() {
@@ -152,88 +190,113 @@ fn print_map_with_crossroads(map: &Map, crossroads: &Vec<(usize, usize)>) {
     }
 }
 
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
-struct Pos {
-    row: usize,
-    col: usize,
-}
-
-struct VisitInfo {
+fn visit_next(
+    map: &Map,
     pos: Pos,
+    path: &mut HashSet<Pos>,
+    score: usize,
     dir: Direction,
-}
-
-fn dijkstra(map: &Map, start_col: usize, start_row: usize) {
-    let mut unvisited = Vec::<VisitInfo>::new();
-    let mut min_dist = HashMap::new();
-    let mut queue = Vec::new();
-
-    for (row_idx, row) in map.iter().enumerate() {
-        for (col_idx, tile) in row.iter().enumerate() {
-            if map[row_idx][col_idx] == Tile::Wall {
-                continue;
-            }
-
-            let pos = Pos {
-                row: row_idx,
-                col: col_idx,
-            };
-
-            for dir in [
-                Direction::Up,
-                Direction::Down,
-                Direction::Left,
-                Direction::Right,
-            ] {
-                unvisited.push(VisitInfo { pos, dir });
-            }
-
-            min_dist.insert(pos, usize::MAX);
-            queue.push(pos);
+    current_best: &mut usize,
+) {
+    if map[pos.row][pos.col] == Tile::End {
+        println!("Reached end with score {:?}", score);
+        print_path(map, path);
+        if score < *current_best {
+            *current_best = score;
+            println!("Found new best score: {:?}", score);
         }
+        return;
     }
 
-    min_dist.insert(
-        Pos {
-            row: map.len() - 2,
-            col: 1,
-        },
-        0,
-    );
+    path.insert(pos);
 
-    while !queue.is_empty() {
-        let min_dist_vertex = queue
+    for next_dir in [
+        Direction::Up,
+        Direction::Down,
+        Direction::Left,
+        Direction::Right,
+    ] {
+        // todo: multiple turns score?
+        let cost = if next_dir == dir {
+            MOVE_SCORE
+        } else {
+            MOVE_SCORE + TURN_SCORE
+        };
+
+        let next_pos = pos.move_to(&next_dir);
+
+        if map[next_pos.row][next_pos.col] != Tile::Wall && !path.contains(&next_pos) {
+            visit_next(
+                map,
+                pos.move_to(&next_dir),
+                &mut path.clone(),
+                score + cost,
+                next_dir,
+                current_best,
+            );
+        }
+    }
+}
+
+fn print_path_2(path: &HashSet<Pos>) {
+    let max_row_value = path.iter().map(|p| p.row).max().unwrap();
+
+    let mut path_clone = path.clone();
+    println!("whole path: {:?}", path_clone);
+
+    let mut curr_pos = Pos {
+        row: max_row_value,
+        col: 1,
+    };
+    path_clone.remove(&curr_pos);
+
+    print!("path: ");
+    print!("{:?}", curr_pos);
+
+    while !path_clone.is_empty() {
+        // println!();
+        // println!("path_clone: {path_clone:?}");
+        let next_pos = match path_clone
             .iter()
-            .min_by(|a, b| min_dist[a].cmp(&min_dist[b]))
-            .unwrap();
+            .find(|p| p.row.abs_diff(curr_pos.row) + p.col.abs_diff(curr_pos.col) == 1)
+        {
+            Some(p) => *p,
+            None => {
+                println!();
+                println!("remaining path: {:?}", path_clone);
+                panic!();
+            }
+        };
 
-        let min_dist_vertex =
-            queue.remove(queue.iter().position(|x| x == min_dist_vertex).unwrap());
-
-        for
+        curr_pos = next_pos;
+        print!(" -> {:?}", curr_pos);
+        let x = path_clone.remove(&curr_pos);
+        if !x {
+            panic!("NOT REMOVED")
+        }
     }
 }
 
 fn reindeer_maze_part_1(filename: &str) -> usize {
     let map = read_input(filename);
-    print_map(&map);
-    // let tree = convert_to_tree(&map);
+    // print_map(&map);
 
-    let map_len = map.len();
+    let start_pos = Pos {
+        row: map.len() - 2,
+        col: 1,
+    };
 
-    let start_col = 1;
-    let start_row = map_len - 2;
-
-    dijkstra(
+    let mut best_score = usize::MAX;
+    visit_next(
         &map,
-        start_col,
-        start_row,
-        &mut Vec::new(),
+        start_pos,
+        &mut HashSet::new(),
         0,
         Direction::Right,
+        &mut best_score,
     );
 
-    todo!()
+    best_score
 }
 
 fn reindeer_maze_part_2(filename: &str) -> usize {
@@ -255,7 +318,7 @@ mod tests {
 
     #[test]
     fn part_1_input_example_2() {
-        let answer = reindeer_maze_part_1("inputs/16_input_example_1.txt");
+        let answer = reindeer_maze_part_1("inputs/16_input_example_2.txt");
 
         println!("part 1 - example - answer: {:?}", answer);
         assert_eq!(answer, 11048);
