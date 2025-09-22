@@ -7,14 +7,34 @@ const TURN_SCORE: usize = 1000;
 const MOVE_SCORE: usize = 1;
 
 type Map = Vec<Vec<Tile>>;
-type AdjList = HashMap<usize, Vec<usize>>;
+type AdjList = HashMap<Pos, HashSet<(Pos, usize, Direction)>>;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Copy, Clone, Hash)]
 enum Direction {
     Up,
     Down,
     Left,
     Right,
+}
+
+impl Direction {
+    fn dir_clockwise(&self) -> Direction {
+        match self {
+            Direction::Up => Direction::Right,
+            Direction::Down => Direction::Left,
+            Direction::Left => Direction::Up,
+            Direction::Right => Direction::Down,
+        }
+    }
+
+    fn dir_counterclockwise(&self) -> Direction {
+        match self {
+            Direction::Up => Direction::Left,
+            Direction::Down => Direction::Right,
+            Direction::Left => Direction::Down,
+            Direction::Right => Direction::Up,
+        }
+    }
 }
 
 impl Display for Direction {
@@ -83,68 +103,90 @@ impl Pos {
     }
 }
 
-fn convert_to_tree(map: &Map) -> AdjList {
-    let map_len = map.len();
-    let map_width = map[0].len();
+fn visit_in_direction(
+    map: &Map,
+    initial_pos: Pos,
+    pos: Pos,
+    dir: Direction,
+    dist: usize,
+) -> (Pos, usize) {
+    // println!("\tvisiting pos: {pos:?} in direction: {dir:?}, dist: {dist}");
+    loop {
+        let next_pos = pos.move_to(&dir);
+        let pos_clockwise = pos.move_to(&dir.dir_clockwise());
+        let pos_counterclockwise = pos.move_to(&dir.dir_counterclockwise());
 
-    // find all vertices that are crossroads
-    let mut crossroads_pos = Vec::new();
-    for x in 1..map_width - 1 {
-        for y in 1..map_len - 2 {
-            let vertex = &map[y][x];
-            if *vertex != Tile::Road || *vertex == Tile::Start || *vertex == Tile::End {
+        if map[next_pos.row][next_pos.col] == Tile::Wall
+            || (map[pos_clockwise.row][pos_clockwise.col] == Tile::Road && pos != initial_pos)
+            || (map[pos_counterclockwise.row][pos_counterclockwise.col] == Tile::Road
+                && pos != initial_pos)
+        {
+            return (pos, dist);
+        }
+
+        let info = visit_in_direction(map, initial_pos, next_pos, dir, dist + 1);
+        // println!(
+        //     "\tnext crossroad is on pos: {:?} (dist: {})",
+        //     info.0, info.1
+        // );
+        return info;
+    }
+}
+
+fn convert_to_adj_list(map: &Map) -> AdjList {
+    let mut adj_list = HashMap::new();
+    let mut queue = Vec::new();
+    let mut visited = HashSet::new();
+
+    let start_pos = Pos {
+        row: map.len() - 2,
+        col: 1,
+    };
+
+    queue.push(start_pos);
+
+    while let Some(current_pos) = queue.pop() {
+        // println!("===current pos: {current_pos:?}");
+        for dir in [
+            Direction::Up,
+            Direction::Down,
+            Direction::Left,
+            Direction::Right,
+        ] {
+            let (tile_reached, dist) = visit_in_direction(map, current_pos, current_pos, dir, 0);
+            // println!("tile reached: {tile_reached:?}, dist: {dist}");
+            if dist == 0 {
                 continue;
             }
 
-            let neighbors = get_near_roads(map, x, y);
-            if neighbors.len() > 2 {
-                crossroads_pos.push((x, y));
-            } else if neighbors.len() == 2 {
-                // add only if they are not on the straight road
-                if neighbors[0].0 != neighbors[1].0 && neighbors[0].1 != neighbors[1].1 {
-                    crossroads_pos.push((x, y));
-                }
+            adj_list
+                .entry(current_pos)
+                .and_modify(|neighbors: &mut HashSet<(Pos, usize, Direction)>| {
+                    neighbors.insert((tile_reached, dist, dir));
+                })
+                .or_insert(HashSet::from([(tile_reached, dist, dir)]));
+
+            if !visited.contains(&tile_reached) {
+                // println!("pushing {tile_reached:?} to queue");
+                queue.push(tile_reached);
             }
+
+            visited.insert(tile_reached);
         }
     }
 
-    println!("crossroads: {:?}", crossroads_pos);
-    print_map_with_crossroads(&map, &crossroads_pos);
-
-    todo!()
-}
-
-fn get_near_roads(map: &Map, x: usize, y: usize) -> Vec<(usize, usize)> {
-    let mut neighbors = Vec::new();
-    if map[y][x - 1] != Tile::Wall {
-        neighbors.push((y, x - 1));
-    }
-
-    if map[y][x + 1] != Tile::Wall {
-        neighbors.push((y, x + 1));
-    }
-
-    if map[y - 1][x] != Tile::Wall {
-        neighbors.push((y - 1, x));
-    }
-
-    if map[y + 1][x] != Tile::Wall {
-        neighbors.push((y + 1, x));
-    }
-
-    neighbors
+    adj_list
 }
 
 fn print_map(map: &Map) {
     for row in map {
         for tile in row {
-            print!("{:?}", tile);
-            // match tile {
-            //     Tile::Wall => print!("#"),
-            //     Tile::Road => print!("."),
-            //     Tile::Start => print!("S"),
-            //     Tile::End => print!("E"),
-            // }
+            match tile {
+                Tile::Wall => print!("#"),
+                Tile::Road => print!("."),
+                Tile::Start => print!("S"),
+                Tile::End => print!("E"),
+            }
         }
         println!();
     }
@@ -166,25 +208,6 @@ fn print_path(map: &Map, path: &HashSet<Pos>) {
                 Tile::Start => print!("S"),
                 Tile::End => print!("E"),
             }
-        }
-        println!();
-    }
-}
-
-fn print_map_with_crossroads(map: &Map, crossroads: &Vec<(usize, usize)>) {
-    for (row_idx, row) in map.iter().enumerate() {
-        for (col_idx, tile) in row.iter().enumerate() {
-            if crossroads.contains(&(row_idx, col_idx)) {
-                print!("X");
-                continue;
-            }
-            // match tile {
-            //     Tile::Wall => print!("#"),
-            //     Tile::Road => print!("."),
-            //     Tile::Start => print!("S"),
-            //     Tile::End => print!("E"),
-            // }
-            print!("{:?}", tile);
         }
         println!();
     }
@@ -238,6 +261,31 @@ fn visit_next(
     }
 }
 
+fn dijkstra(adj_list: &AdjList, start_pos: Pos) {
+    let mut distances = HashMap::new();
+    let mut previouses = HashMap::new();
+    let mut queue = Vec::new();
+
+    for (pos, neighbors) in adj_list.iter() {
+        distances.insert(*pos, usize::MAX);
+        previouses.insert(*pos, None);
+        queue.push(*pos);
+    }
+
+    distances.insert(start_pos, 0);
+
+    while !queue.is_empty() {
+        let u = queue.iter().min_by_key(|pos| distances[*pos]).unwrap();
+
+        queue.retain(|pos| *pos != *u);
+
+        for (neighbor_pos, dist, dir) in adj_list[u].iter() {
+
+        }
+
+    }
+}
+
 fn print_path_2(path: &HashSet<Pos>) {
     let max_row_value = path.iter().map(|p| p.row).max().unwrap();
 
@@ -280,6 +328,10 @@ fn print_path_2(path: &HashSet<Pos>) {
 fn reindeer_maze_part_1(filename: &str) -> usize {
     let map = read_input(filename);
     // print_map(&map);
+    let adj_list = convert_to_adj_list(&map);
+    for (pos, info) in adj_list.iter() {
+        println!("{pos:?}: {info:?}");
+    }
 
     let start_pos = Pos {
         row: map.len() - 2,
@@ -287,8 +339,9 @@ fn reindeer_maze_part_1(filename: &str) -> usize {
     };
 
     let mut best_score = usize::MAX;
-    visit_next(
+    visit_next_adj_list(
         &map,
+        &adj_list,
         start_pos,
         &mut HashSet::new(),
         0,
@@ -297,6 +350,8 @@ fn reindeer_maze_part_1(filename: &str) -> usize {
     );
 
     best_score
+
+    // todo!()
 }
 
 fn reindeer_maze_part_2(filename: &str) -> usize {
