@@ -1,2 +1,2 @@
 #![allow(dead_code)]
-mod t01_cafeteria;
+mod day_05_cafeteria;
