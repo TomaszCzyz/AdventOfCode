@@ -32,6 +32,43 @@ fn read_input(file_name: &str) -> (Vec<Range>, Vec<Id>) {
 fn part_1(filename: &str) -> usize {
     let (ranges, ids) = read_input(filename);
 
+    let merged = merge_ranges_into_sorted_vec(ranges);
+
+    let mut sum: usize = 0;
+    for ingredient_id in ids {
+        match merged.binary_search(&ingredient_id) {
+            Ok(_) => {
+                sum += 1;
+            }
+            Err(pos) => {
+                if pos == merged.len() {
+                    continue;
+                }
+
+                if pos % 2 == 1 {
+                    // within a range
+                    sum += 1;
+                }
+            }
+        }
+    }
+
+    sum
+}
+
+fn part_2(filename: &str) -> usize {
+    let (ranges, ids) = read_input(filename);
+
+    let merged = merge_ranges_into_sorted_vec(ranges);
+
+    let (chunks, []) = merged.as_chunks::<2>() else {
+        panic!("slice didn't have even length")
+    };
+
+    chunks.iter().map(|[start, end]| end - start + 1).sum()
+}
+
+fn merge_ranges_into_sorted_vec(ranges: Vec<Range>) -> Vec<Id> {
     let sorted_ranges = ranges
         .into_iter()
         .sorted_by_key(|x| x.0)
@@ -58,27 +95,7 @@ fn part_1(filename: &str) -> usize {
 
     merged.push(current.0);
     merged.push(current.1);
-
-    let mut sum: usize = 0;
-    for ingredient_id in ids {
-        match merged.binary_search(&ingredient_id) {
-            Ok(_) => {
-                sum += 1;
-            }
-            Err(pos) => {
-                if pos == merged.len() {
-                    continue;
-                }
-
-                if pos % 2 == 1 {
-                    // within a range
-                    sum += 1;
-                }
-            }
-        }
-    }
-
-    sum
+    merged
 }
 
 #[cfg(test)]
@@ -120,5 +137,21 @@ mod tests {
 
         println!("part 1 - example - answer: {:?}", answer);
         assert_eq!(answer, 623);
+    }
+
+    #[test]
+    fn part_2_input_example_1() {
+        let answer = part_2("inputs/05_input_example.txt");
+
+        println!("part 2 - example - answer: {:?}", answer);
+        assert_eq!(answer, 14);
+    }
+
+    #[test]
+    fn part_2_input() {
+        let answer = part_2("inputs/05_input.txt");
+
+        println!("part 2 - example - answer: {:?}", answer);
+        assert_eq!(answer, 353507173555373);
     }
 }
