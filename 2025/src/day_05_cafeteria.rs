@@ -57,7 +57,7 @@ fn part_1(filename: &str) -> usize {
 }
 
 fn part_2(filename: &str) -> usize {
-    let (ranges, ids) = read_input(filename);
+    let (ranges, _ids) = read_input(filename);
 
     let merged = merge_ranges_into_sorted_vec(ranges);
 
