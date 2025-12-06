@@ -263,12 +263,12 @@ fn visit_next(
 
 fn dijkstra(adj_list: &AdjList, start_pos: Pos) {
     let mut distances = HashMap::new();
-    let mut previouses = HashMap::new();
+    // let mut previouses = HashMap::new();
     let mut queue = Vec::new();
 
     for (pos, neighbors) in adj_list.iter() {
         distances.insert(*pos, usize::MAX);
-        previouses.insert(*pos, None);
+        // previouses.insert(*pos, None);
         queue.push(*pos);
     }
 
@@ -277,7 +277,7 @@ fn dijkstra(adj_list: &AdjList, start_pos: Pos) {
     while !queue.is_empty() {
         let u = queue.iter().min_by_key(|pos| distances[*pos]).unwrap();
 
-        queue.retain(|pos| *pos != *u);
+        // queue.retain(|pos| *pos != *u);
 
         for (neighbor_pos, dist, dir) in adj_list[u].iter() {
 
@@ -339,15 +339,15 @@ fn reindeer_maze_part_1(filename: &str) -> usize {
     };
 
     let mut best_score = usize::MAX;
-    visit_next_adj_list(
-        &map,
-        &adj_list,
-        start_pos,
-        &mut HashSet::new(),
-        0,
-        Direction::Right,
-        &mut best_score,
-    );
+    // visit_next_adj_list(
+    //     &map,
+    //     &adj_list,
+    //     start_pos,
+    //     &mut HashSet::new(),
+    //     0,
+    //     Direction::Right,
+    //     &mut best_score,
+    // );
 
     best_score
 
