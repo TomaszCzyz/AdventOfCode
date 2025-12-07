@@ -1,4 +1,3 @@
-use itertools::Itertools;
 use std::fs;
 
 type Range = (usize, usize);
@@ -42,6 +41,65 @@ fn part_1(filename: &str) -> usize {
     let width = map[0].len();
     let height = map.len();
 
+    let mut heat_map = create_heat_map(&map, width, height);
+
+    print_heat_map(width, height, &mut heat_map);
+
+    let mut sum = 0;
+    for (row_i, row) in map.iter().enumerate() {
+        for (col_i, tile) in row.iter().enumerate() {
+            if *tile == Tile::Roll && heat_map[row_i][col_i] < 4 {
+                sum += 1;
+            }
+        }
+    }
+
+    sum
+}
+
+fn part_2(filename: &str) -> usize {
+    let mut map = read_input(filename);
+
+    let width = map[0].len();
+    let height = map.len();
+
+    let mut heat_map = create_heat_map(&map, width, height);
+
+    let mut sum = 0;
+    let mut removed_count = 0;
+    loop {
+        for row_i in 1..width - 1 {
+            for col_i in 1..height - 1 {
+                let tile = &mut map[row_i][col_i];
+                if *tile == Tile::Roll && heat_map[row_i][col_i] < 4 {
+                    removed_count += 1;
+
+                    *tile = Tile::Empty;
+                    heat_map[row_i][col_i] = 0;
+                    heat_map[row_i - 1][col_i] -= 1;
+                    heat_map[row_i + 1][col_i] -= 1;
+                    heat_map[row_i][col_i - 1] -= 1;
+                    heat_map[row_i][col_i + 1] -= 1;
+                    heat_map[row_i - 1][col_i - 1] -= 1;
+                    heat_map[row_i - 1][col_i + 1] -= 1;
+                    heat_map[row_i + 1][col_i - 1] -= 1;
+                    heat_map[row_i + 1][col_i + 1] -= 1;
+                }
+            }
+        }
+
+        if removed_count == 0 {
+            break;
+        }
+
+        sum += removed_count;
+        removed_count = 0;
+    }
+
+    sum
+}
+
+fn create_heat_map(map: &Vec<Vec<Tile>>, width: usize, height: usize) -> Vec<Vec<i32>> {
     let mut heat_map = vec![vec![0; width]; height];
 
     for row_i in 1..width - 1 {
@@ -71,7 +129,10 @@ fn part_1(filename: &str) -> usize {
             }
         }
     }
+    heat_map
+}
 
+fn print_heat_map(width: usize, height: usize, heat_map: &mut Vec<Vec<i32>>) {
     for row in heat_map.iter().skip(1).take(height - 2) {
         for tile in row.iter().skip(1).take(width - 2) {
             if *tile < 4 {
@@ -82,22 +143,18 @@ fn part_1(filename: &str) -> usize {
         }
         println!();
     }
-
-    let mut sum = 0;
-    for (row_i, row) in map.iter().enumerate() {
-        for (col_i, tile) in row.iter().enumerate() {
-            if *tile == Tile::Roll && heat_map[row_i][col_i] < 4 {
-                sum += 1;
-            }
-        }
-    }
-
-    sum
 }
 
-fn part_2(filename: &str) -> usize {
-    let _ = read_input(filename);
-    todo!()
+fn print_map(map: &Vec<Vec<Tile>>) {
+    for row in map {
+        for tile in row {
+            match tile {
+                Tile::Empty => print!("."),
+                Tile::Roll => print!("@"),
+            }
+        }
+        println!();
+    }
 }
 
 #[cfg(test)]
@@ -106,17 +163,7 @@ mod tests {
 
     #[test]
     fn read_example_input() {
-        let map = read_input("inputs/04_input_example_1.txt");
-
-        for row in map {
-            for tile in row {
-                match tile {
-                    Tile::Empty => print!("."),
-                    Tile::Roll => print!("@"),
-                }
-            }
-            println!();
-        }
+        _ = read_input("inputs/04_input_example_1.txt");
     }
 
     #[test]
@@ -137,10 +184,10 @@ mod tests {
 
     #[test]
     fn part_2_input_example_1() {
-        let answer = part_2("inputs/04_input_example.txt");
+        let answer = part_2("inputs/04_input_example_1.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 14);
+        assert_eq!(answer, 43);
     }
 
     #[test]
@@ -148,6 +195,6 @@ mod tests {
         let answer = part_2("inputs/04_input.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 353507173555373);
+        assert_eq!(answer, 9397);
     }
 }
