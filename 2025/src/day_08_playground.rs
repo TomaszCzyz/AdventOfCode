@@ -136,9 +136,83 @@ fn part_1(filename: &str, laps: usize) -> usize {
 }
 
 fn part_2(filename: &str) -> i64 {
-    let _ = read_input(filename);
+    let coords = read_input(filename);
+    let coords_len = coords.len();
+    let mut heap = calc_distances(coords.clone());
+    let mut heap2 = calc_distances(coords);
+    let mut c = 0;
+    while let Some(el) = heap2.pop() {
+        println!(
+            "{c:3?}: {:.3?}, {:3?} <-> {:3?}",
+            el.distance.0, el.coord1, el.coord2
+        );
+        c += 1;
+        //  5: 338.339, ( 52, 470, 668) <-> (117, 168, 530)
+        // 12: 372.023, (352, 342, 300) <-> (117, 168, 530)
 
-    todo!();
+        // WHY THERE IS NO 216, 146, 977 before step 28???
+        // 28: 458.360, (216, 146, 977) <-> (117, 168, 530)
+    }
+
+    let mut circuits = Vec::<HashSet<Coord>>::new();
+    let mut answer = 0;
+
+    while let Some(elem) = heap.pop() {
+        let mut index_1: Option<usize> = None;
+        let mut index_2: Option<usize> = None;
+        for (index, circuit) in circuits.iter().enumerate() {
+            if circuit.contains(&elem.coord1) {
+                index_1 = Some(index);
+                continue;
+            }
+            if circuit.contains(&elem.coord2) {
+                index_2 = Some(index);
+                continue;
+            }
+        }
+
+        match (index_1, index_2) {
+            (Some(i1), Some(i2)) if i1 != i2 => {
+                // merge sets
+                // ensure i_big > i_small to avoid shifting problems
+                let (big, small) = if i1 > i2 { (i1, i2) } else { (i2, i1) };
+
+                // take both sets out of the vector; remove higher index first
+                let mut big_set = circuits.remove(big);
+                let small_set = circuits.remove(small);
+
+                for coord in small_set {
+                    big_set.insert(coord);
+                }
+
+                circuits.push(big_set);
+
+                if circuits.len() == 1 && circuits[0].len() == coords_len {
+                    answer = elem.coord1.0 * elem.coord2.0;
+                    println!(
+                        "All connected! last pair: {:?}, {:?}",
+                        elem.coord1, elem.coord2
+                    );
+                    break;
+                }
+            }
+            (Some(i1), None) => {
+                circuits[i1].insert(elem.coord2);
+            }
+            (None, Some(i2)) => {
+                circuits[i2].insert(elem.coord1);
+            }
+            (None, None) => {
+                let mut new_circuit = HashSet::<Coord>::new();
+                new_circuit.insert(elem.coord1);
+                new_circuit.insert(elem.coord2);
+                circuits.push(new_circuit);
+            }
+            (Some(_), Some(_)) => unreachable!(),
+        }
+    }
+
+    answer
 }
 
 fn print_sets(circuits: &Vec<HashSet<Coord>>) {
