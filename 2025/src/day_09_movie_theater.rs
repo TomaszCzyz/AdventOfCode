@@ -18,7 +18,6 @@ fn read_input(file_name: &str) -> Vec<Coord> {
 
 fn part_1(filename: &str) -> i64 {
     let coords = read_input(filename);
-
     let mut current_best = 0;
 
     for i in 0..coords.len() {
@@ -37,16 +36,93 @@ fn part_1(filename: &str) -> i64 {
     current_best
 }
 
+fn part_2(filename: &str) -> i64 {
+    let coords = read_input(filename);
+    let mut xs: Vec<i64> = coords.iter().map(|c| c.0).collect();
+    let mut ys: Vec<i64> = coords.iter().map(|c| c.1).collect();
+    xs.sort_unstable();
+    ys.sort_unstable();
+
+    let mut current_best = 0;
+    for i in 0..coords.len() {
+        for j in 0..coords.len() {
+            if i == j {
+                continue;
+            }
+
+            let c1 = coords[i];
+            let c2 = coords[j];
+            let (min_x, max_x) = if c1.0 < c2.0 {
+                (c1.0, c2.0)
+            } else {
+                (c2.0, c1.0)
+            };
+            let (min_y, max_y) = if c1.1 < c2.1 {
+                (c1.1, c2.1)
+            } else {
+                (c2.1, c1.1)
+            };
+
+            // check if area within does not contain any other coords
+            match coords
+                .iter()
+                .position(|c| c.0 > min_x && c.0 < max_x && c.1 > min_y && c.1 < max_y)
+            {
+                Some(_) => continue,
+                None => {
+                    // check if inside polygon, i.e. there is coord further (or equal) in each direction for tile
+                    let c3 = (c1.1, c2.0);
+                    let c4 = (c2.1, c1.0);
+
+                    let _ = coords
+                        .iter()
+                        .position(|c| c.0 > min_x && c.0 < max_x && c.1 > min_y && c.1 < max_y);
+                }
+            }
+
+            let a = area(c1, c2);
+            if a > current_best {
+                current_best = a;
+            }
+        }
+    }
+
+    current_best
+}
+
+fn print_map_with_area(coords: &Vec<Coord>, c1: Coord, c2: Coord) {
+    let x_max = coords.iter().map(|c| c.0).max().unwrap() + 1;
+    let y_max = coords.iter().map(|c| c.1).max().unwrap() + 1;
+    for i in 1..y_max {
+        for j in 1..x_max {
+            let (x_min, x_max) = if c1.0 < c2.0 {
+                (c1.0, c2.0)
+            } else {
+                (c2.0, c1.0)
+            };
+            let (y_min, y_max) = if c1.1 < c2.1 {
+                (c1.1, c2.1)
+            } else {
+                (c2.1, c1.1)
+            };
+
+            if (j >= x_min && j <= x_max) && (i >= y_min && i <= y_max) {
+                print!("0");
+            } else if coords.contains(&(j, i)) {
+                print!("#");
+            } else {
+                print!(".");
+            }
+        }
+        println!()
+    }
+    println!()
+}
+
 fn area(c1: Coord, c2: Coord) -> i64 {
     let width = (c1.0 - c2.0).abs();
     let height = (c1.1 - c2.1).abs();
     (width + 1) * (height + 1)
-}
-
-fn part_2(filename: &str) -> i64 {
-    let _ = read_input(filename);
-
-    todo!()
 }
 
 #[cfg(test)]
