@@ -84,49 +84,9 @@ fn part_1(filename: &str, laps: usize) -> usize {
             break;
         }
 
-        let mut index_1: Option<usize> = None;
-        let mut index_2: Option<usize> = None;
-        for (index, circuit) in circuits.iter().enumerate() {
-            if circuit.contains(&elem.coord1) {
-                index_1 = Some(index);
-                continue;
-            }
-            if circuit.contains(&elem.coord2) {
-                index_2 = Some(index);
-                continue;
-            }
-        }
+        let (index_1, index_2) = find_in_circuits(&circuits, &elem);
 
-        match (index_1, index_2) {
-            (Some(i1), Some(i2)) if i1 != i2 => {
-                // merge sets
-                // ensure i_big > i_small to avoid shifting problems
-                let (big, small) = if i1 > i2 { (i1, i2) } else { (i2, i1) };
-
-                // take both sets out of the vector; remove higher index first
-                let mut big_set = circuits.remove(big);
-                let small_set = circuits.remove(small);
-
-                for coord in small_set {
-                    big_set.insert(coord);
-                }
-
-                circuits.push(big_set);
-            }
-            (Some(i1), None) => {
-                circuits[i1].insert(elem.coord2);
-            }
-            (None, Some(i2)) => {
-                circuits[i2].insert(elem.coord1);
-            }
-            (None, None) => {
-                let mut new_circuit = HashSet::<Coord>::new();
-                new_circuit.insert(elem.coord1);
-                new_circuit.insert(elem.coord2);
-                circuits.push(new_circuit);
-            }
-            (Some(_), Some(_)) => unreachable!(),
-        }
+        insert_or_merge_into_circuit(&mut circuits, &elem, index_1, index_2);
 
         counter += 1;
     }
@@ -143,49 +103,9 @@ fn part_2(filename: &str) -> i64 {
     let mut answer = 0;
 
     while let Some(elem) = heap.pop() {
-        let mut index_1: Option<usize> = None;
-        let mut index_2: Option<usize> = None;
-        for (index, circuit) in circuits.iter().enumerate() {
-            if circuit.contains(&elem.coord1) {
-                index_1 = Some(index);
-                continue;
-            }
-            if circuit.contains(&elem.coord2) {
-                index_2 = Some(index);
-                continue;
-            }
-        }
+        let (index_1, index_2) = find_in_circuits(&circuits, &elem);
 
-        match (index_1, index_2) {
-            (Some(i1), Some(i2)) if i1 != i2 => {
-                // merge sets
-                // ensure i_big > i_small to avoid shifting problems
-                let (big, small) = if i1 > i2 { (i1, i2) } else { (i2, i1) };
-
-                // take both sets out of the vector; remove higher index first
-                let mut big_set = circuits.remove(big);
-                let small_set = circuits.remove(small);
-
-                for coord in small_set {
-                    big_set.insert(coord);
-                }
-
-                circuits.push(big_set);
-            }
-            (Some(i1), None) => {
-                circuits[i1].insert(elem.coord2);
-            }
-            (None, Some(i2)) => {
-                circuits[i2].insert(elem.coord1);
-            }
-            (None, None) => {
-                let mut new_circuit = HashSet::<Coord>::new();
-                new_circuit.insert(elem.coord1);
-                new_circuit.insert(elem.coord2);
-                circuits.push(new_circuit);
-            }
-            (Some(_), Some(_)) => unreachable!(),
-        }
+        insert_or_merge_into_circuit(&mut circuits, &elem, index_1, index_2);
 
         if circuits.len() == 1 && circuits[0].len() == coords_len {
             answer = elem.coord1.0 * elem.coord2.0;
@@ -194,6 +114,63 @@ fn part_2(filename: &str) -> i64 {
     }
 
     answer
+}
+
+fn insert_or_merge_into_circuit(
+    circuits: &mut Vec<HashSet<Coord>>,
+    elem: &Connection,
+    index_1: Option<usize>,
+    index_2: Option<usize>,
+) {
+    match (index_1, index_2) {
+        (Some(i1), Some(i2)) if i1 != i2 => {
+            // merge sets
+            // ensure i_big > i_small to avoid shifting problems
+            let (big, small) = if i1 > i2 { (i1, i2) } else { (i2, i1) };
+
+            // take both sets out of the vector; remove higher index first
+            let mut big_set = circuits.remove(big);
+            let small_set = circuits.remove(small);
+
+            for coord in small_set {
+                big_set.insert(coord);
+            }
+
+            circuits.push(big_set);
+        }
+        (Some(i1), None) => {
+            circuits[i1].insert(elem.coord2);
+        }
+        (None, Some(i2)) => {
+            circuits[i2].insert(elem.coord1);
+        }
+        (None, None) => {
+            let mut new_circuit = HashSet::<Coord>::new();
+            new_circuit.insert(elem.coord1);
+            new_circuit.insert(elem.coord2);
+            circuits.push(new_circuit);
+        }
+        (Some(_), Some(_)) => unreachable!(),
+    }
+}
+
+fn find_in_circuits(
+    circuits: &Vec<HashSet<Coord>>,
+    elem: &Connection,
+) -> (Option<usize>, Option<usize>) {
+    let mut index_1: Option<usize> = None;
+    let mut index_2: Option<usize> = None;
+    for (index, circuit) in circuits.iter().enumerate() {
+        if circuit.contains(&elem.coord1) {
+            index_1 = Some(index);
+            continue;
+        }
+        if circuit.contains(&elem.coord2) {
+            index_2 = Some(index);
+            continue;
+        }
+    }
+    (index_1, index_2)
 }
 
 fn print_sets(circuits: &Vec<HashSet<Coord>>) {
