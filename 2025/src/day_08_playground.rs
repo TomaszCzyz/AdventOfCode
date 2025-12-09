@@ -139,21 +139,6 @@ fn part_2(filename: &str) -> i64 {
     let coords = read_input(filename);
     let coords_len = coords.len();
     let mut heap = calc_distances(coords.clone());
-    let mut heap2 = calc_distances(coords);
-    let mut c = 0;
-    while let Some(el) = heap2.pop() {
-        println!(
-            "{c:3?}: {:.3?}, {:3?} <-> {:3?}",
-            el.distance.0, el.coord1, el.coord2
-        );
-        c += 1;
-        //  5: 338.339, ( 52, 470, 668) <-> (117, 168, 530)
-        // 12: 372.023, (352, 342, 300) <-> (117, 168, 530)
-
-        // WHY THERE IS NO 216, 146, 977 before step 28???
-        // 28: 458.360, (216, 146, 977) <-> (117, 168, 530)
-    }
-
     let mut circuits = Vec::<HashSet<Coord>>::new();
     let mut answer = 0;
 
@@ -186,15 +171,6 @@ fn part_2(filename: &str) -> i64 {
                 }
 
                 circuits.push(big_set);
-
-                if circuits.len() == 1 && circuits[0].len() == coords_len {
-                    answer = elem.coord1.0 * elem.coord2.0;
-                    println!(
-                        "All connected! last pair: {:?}, {:?}",
-                        elem.coord1, elem.coord2
-                    );
-                    break;
-                }
             }
             (Some(i1), None) => {
                 circuits[i1].insert(elem.coord2);
@@ -209,6 +185,11 @@ fn part_2(filename: &str) -> i64 {
                 circuits.push(new_circuit);
             }
             (Some(_), Some(_)) => unreachable!(),
+        }
+
+        if circuits.len() == 1 && circuits[0].len() == coords_len {
+            answer = elem.coord1.0 * elem.coord2.0;
+            break;
         }
     }
 
@@ -283,7 +264,7 @@ mod tests {
         let answer = part_2("inputs/08_input_example_1.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 3263827);
+        assert_eq!(answer, 25272);
     }
 
     #[test]
@@ -291,6 +272,6 @@ mod tests {
         let answer = part_2("inputs/08_input.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 9170286552289);
+        assert_eq!(answer, 8759985540);
     }
 }
