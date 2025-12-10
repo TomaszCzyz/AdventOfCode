@@ -21,10 +21,8 @@ fn part_1(filename: &str) -> i64 {
     let mut current_best = 0;
 
     for i in 0..coords.len() {
-        for j in 0..coords.len() {
-            if i == j {
-                continue;
-            }
+        for jj in (i + 1)..(i + 1 + coords.len()) {
+            let j = jj % coords.len();
 
             let a = area(coords[i], coords[j]);
             if a > current_best {
@@ -38,49 +36,44 @@ fn part_1(filename: &str) -> i64 {
 
 fn part_2(filename: &str) -> i64 {
     let coords = read_input(filename);
-    let mut xs: Vec<i64> = coords.iter().map(|c| c.0).collect();
-    let mut ys: Vec<i64> = coords.iter().map(|c| c.1).collect();
-    xs.sort_unstable();
-    ys.sort_unstable();
+    println!("coords: {:?}", coords);
 
     let mut current_best = 0;
     for i in 0..coords.len() {
-        for j in 0..coords.len() {
-            if i == j {
-                continue;
-            }
+        for j in (i + 1)..coords.len() {
+            let (ci, cj) = (coords[i], coords[j]);
 
-            let c1 = coords[i];
-            let c2 = coords[j];
-            let (min_x, max_x) = if c1.0 < c2.0 {
-                (c1.0, c2.0)
+            let (x_min, x_max) = if ci.0 < cj.0 {
+                (ci.0, cj.0)
             } else {
-                (c2.0, c1.0)
-            };
-            let (min_y, max_y) = if c1.1 < c2.1 {
-                (c1.1, c2.1)
-            } else {
-                (c2.1, c1.1)
+                (cj.0, ci.0)
             };
 
-            // check if area within does not contain any other coords
-            match coords
-                .iter()
-                .position(|c| c.0 > min_x && c.0 < max_x && c.1 > min_y && c.1 < max_y)
-            {
-                Some(_) => continue,
-                None => {
-                    // check if inside polygon, i.e. there is coord further (or equal) in each direction for tile
-                    let c3 = (c1.1, c2.0);
-                    let c4 = (c2.1, c1.0);
+            let (y_min, y_max) = if ci.1 < cj.1 {
+                (ci.1, cj.1)
+            } else {
+                (cj.1, ci.1)
+            };
 
-                    let _ = coords
-                        .iter()
-                        .position(|c| c.0 > min_x && c.0 < max_x && c.1 > min_y && c.1 < max_y);
+            let mut is_valid = true;
+            for k in 0..coords.len() {
+                if k == i || k == j {
+                    continue;
+                }
+                let ck = coords[k];
+                // all points must be outside the area
+                if ck.0 > x_min && ck.0 < x_max && ck.1 > y_min && ck.1 < y_max {
+                    is_valid = false;
+                    break;
                 }
             }
 
-            let a = area(c1, c2);
+            if !is_valid {
+                continue;
+            }
+
+            print_map_with_area(&coords, ci, cj);
+            let a = area(ci, cj);
             if a > current_best {
                 current_best = a;
             }
@@ -88,6 +81,31 @@ fn part_2(filename: &str) -> i64 {
     }
 
     current_best
+}
+
+fn is_path_valid(path: &Vec<Coord>) -> bool {
+    if path.len() <= 2 {
+        return true;
+    }
+
+    let start = path[0];
+    let end = path[path.len() - 1];
+
+    let (x_min, x_max) = if start.0 < end.0 {
+        (start.0, end.0)
+    } else {
+        (end.0, start.0)
+    };
+    let (y_min, y_max) = if start.1 < end.1 {
+        (start.1, end.1)
+    } else {
+        (end.1, start.1)
+    };
+
+    path.iter()
+        .skip(1)
+        .take(path.len() - 2)
+        .all(|c| c.0 < x_min && c.0 > x_max && c.1 < y_min && c.1 > y_max)
 }
 
 fn print_map_with_area(coords: &Vec<Coord>, c1: Coord, c2: Coord) {
