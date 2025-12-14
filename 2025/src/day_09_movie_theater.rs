@@ -43,7 +43,6 @@ fn part_2(filename: &str) -> i64 {
     let mut count = 0;
     for i in 0..coords.len() {
         for j in (i + 1)..coords.len() {
-            print!("{i} {j}");
             count += 1;
 
             let x_min = coords[i].0.min(coords[j].0);
@@ -51,52 +50,58 @@ fn part_2(filename: &str) -> i64 {
             let y_min = coords[i].1.min(coords[j].1);
             let y_max = coords[i].1.max(coords[j].1);
 
-            let mut valid = true;
-            for k in (y_min + 1)..y_max {
-                if !point_in_polygon((x_min, k), &coords) {
-                    valid = false;
-                    break;
+            let mut is_valid = true;
+            for k in 0..coords.len() {
+                if k == i || k == j {
+                    continue;
+                }
+
+                let (x, y) = coords[k];
+                if x >= x_min && x <= x_max && y >= y_min && y <= y_max {
+                    if x == x_min
+                        && (!point_in_polygon((x_min + 1, y + 1), &coords)
+                            || !point_in_polygon((x_min + 1, y - 1), &coords))
+                    {
+                        is_valid = false;
+                        break;
+                    }
+
+                    if x == x_max
+                        && (!point_in_polygon((x_max - 1, y + 1), &coords)
+                            || !point_in_polygon((x_max - 1, y - 1), &coords))
+                    {
+                        is_valid = false;
+                        break;
+                    }
+
+                    if y == y_min
+                        && (!point_in_polygon((x - 1, y_min + 1), &coords)
+                            || !point_in_polygon((x + 1, y_min + 1), &coords))
+                    {
+                        is_valid = false;
+                        break;
+                    }
+
+                    if y == y_max
+                        && (!point_in_polygon((x - 1, y_max - 1), &coords)
+                            || !point_in_polygon((x + 1, y_max - 1), &coords))
+                    {
+                        is_valid = false;
+                        break;
+                    }
+
+                    if !(x == x_min || x == x_max || y == y_min || y == y_max) {
+                        // inside polygon
+                        is_valid = false;
+                        break;
+                    }
                 }
             }
 
-            if !valid {
+            if !is_valid {
                 continue;
             }
-
-            for k in (y_min + 1)..y_max {
-                if !point_in_polygon((x_max, k), &coords) {
-                    valid = false;
-                    break;
-                }
-            }
-
-            if !valid {
-                continue;
-            }
-
-            for k in (x_min + 1)..x_max {
-                if !point_in_polygon((k, y_min), &coords) {
-                    valid = false;
-                    break;
-                }
-            }
-
-            if !valid {
-                continue;
-            }
-
-            for k in (x_min + 1)..x_max {
-                if !point_in_polygon((k, y_max), &coords) {
-                    valid = false;
-                    break;
-                }
-            }
-
-            if !valid {
-                continue;
-            }
-
-            // print_map_with_area(&coords, coords[i], coords[j]);
+            print_map_with_area(&coords, coords[i], coords[j]);
             let area = area(coords[i], coords[j]);
             if area > current_best {
                 current_best = area;
