@@ -59,30 +59,6 @@ fn part_2(filename: &str) -> i64 {
     let coords = read_input(filename);
     println!("coords: {:?}", coords);
 
-    let mut coords_info: Vec<CoordInfo> = Vec::new();
-
-    let coords_wrapped = iter::once(coords[coords.len() - 1])
-        .chain(coords.clone())
-        .chain(iter::once(coords[0]));
-
-    for (prev, curr, next) in coords_wrapped.tuple_windows::<(_, _, _)>() {
-        let prev_green = move_one_step(curr, prev);
-        let next_green = move_one_step(curr, next);
-
-        coords_info.push(CoordInfo {
-            coord: curr,
-            prev_green,
-            next_green,
-        });
-    }
-
-    for info in &coords_info {
-        println!(
-            "coord: {:?}, prev_green: {:?}, next_green: {:?}",
-            info.coord, info.prev_green, info.next_green
-        );
-    }
-
     let mut current_best = 0;
     for i in 0..coords.len() {
         for j in (i + 1)..coords.len() {
@@ -98,34 +74,47 @@ fn part_2(filename: &str) -> i64 {
                 (cj.1, ci.1)
             };
 
-            let mut is_rectangle_inside = true;
+            // rectangle to be valid must:
+            // - not contain any other coords within area
+            // - number of corners on edge has to be even
+
+            let mut is_rectangle_valid = true;
+            let mut coords_on_edge_1 = 0;
+            let mut coords_on_edge_2 = 0;
+            let mut coords_on_edge_3 = 0;
+            let mut coords_on_edge_4 = 0;
             for k in 0..coords.len() {
                 if k == i || k == j {
                     continue;
                 }
-                let coord_info = &coords_info[k];
-                let coord_k = coord_info.coord;
-                let prev_green = coord_info.prev_green;
-                let next_green = coord_info.next_green;
-                if !is_inside_area_edge_inclusive(coord_k, x_min, x_max, y_min, y_max) {
-                    continue;
+                let coord_k = coords[k];
+
+                if is_inside_area_edge_exclusive(coord_k, x_min, x_max, y_min, y_max) {
+                    is_rectangle_valid = false;
+                    break;
                 }
 
-                // check if is on the edge
-                if coord_k.0 == ci.0 || coord_k.0 == cj.0 || coord_k.1 == ci.1 || coord_k.1 == cj.1
-                {
-                    // on the edge required additional check of previous and next green tiles
-                    if is_inside_area_edge_exclusive(prev_green, x_min, x_max, y_min, y_max)
-                        || is_inside_area_edge_exclusive(next_green, x_min, x_max, y_min, y_max)
-                    {
-                        is_rectangle_inside = false;
-                        break;
-                    }
+                if coord_k.0 == x_min && (coord_k.1 > y_min && coord_k.1 < y_max) {
+                    coords_on_edge_1 += 1;
+                } else if coord_k.0 == x_max && (coord_k.1 > y_min && coord_k.1 < y_max) {
+                    coords_on_edge_2 += 1;
+                } else if coord_k.1 == y_min && (coord_k.0 > x_min && coord_k.0 < x_max) {
+                    coords_on_edge_3 += 1;
+                } else if coord_k.1 == y_max && (coord_k.0 > x_min && coord_k.0 < x_max) {
+                    coords_on_edge_4 += 1;
                 }
             }
 
+            if coords_on_edge_1 % 2 != 0
+                || coords_on_edge_2 % 2 != 0
+                || coords_on_edge_3 % 2 != 0
+                || coords_on_edge_4 % 2 != 0
+            {
+                is_rectangle_valid = false;
+            }
+
             println!("Checking area between {:?} and {:?}", ci, cj);
-            if !is_rectangle_inside {
+            if !is_rectangle_valid {
                 continue;
             }
 
@@ -148,29 +137,8 @@ fn is_inside_area_edge_exclusive(p: Coord, x_min: i64, x_max: i64, y_min: i64, y
     p.0 > x_min && p.0 < x_max && p.1 > y_min && p.1 < y_max
 }
 
-fn is_path_valid(path: &Vec<Coord>) -> bool {
-    if path.len() <= 2 {
-        return true;
-    }
-
-    let start = path[0];
-    let end = path[path.len() - 1];
-
-    let (x_min, x_max) = if start.0 < end.0 {
-        (start.0, end.0)
-    } else {
-        (end.0, start.0)
-    };
-    let (y_min, y_max) = if start.1 < end.1 {
-        (start.1, end.1)
-    } else {
-        (end.1, start.1)
-    };
-
-    path.iter()
-        .skip(1)
-        .take(path.len() - 2)
-        .all(|c| c.0 < x_min && c.0 > x_max && c.1 < y_min && c.1 > y_max)
+fn is_on_edge(p: Coord, x_min: i64, x_max: i64, y_min: i64, y_max: i64) -> bool {
+    p.0 == x_min || p.0 == x_max || p.1 == y_min || p.1 == y_max
 }
 
 fn print_map_with_area(coords: &Vec<Coord>, c1: Coord, c2: Coord) {
