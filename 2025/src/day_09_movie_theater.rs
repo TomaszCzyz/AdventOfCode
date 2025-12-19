@@ -61,62 +61,50 @@ fn part_2(filename: &str) -> i64 {
 
     let mut current_best = 0;
     for i in 0..coords.len() {
-        for j in (i + 1)..coords.len() {
+        // for j in (i + 1)..coords.len() {
+        for j in (0..coords.len()).filter(|j| *j != i) {
             let (ci, cj) = (coords[i], coords[j]);
-            let (x_min, x_max) = if ci.0 < cj.0 {
-                (ci.0, cj.0)
-            } else {
-                (cj.0, ci.0)
-            };
-            let (y_min, y_max) = if ci.1 < cj.1 {
-                (ci.1, cj.1)
-            } else {
-                (cj.1, ci.1)
-            };
 
-            // rectangle to be valid must:
-            // - not contain any other coords within area
-            // - number of corners on edge has to be even
+            let mut ci_q1 = 0;
+            let mut ci_q2 = 0;
+            let mut ci_q3 = 0;
+            let mut ci_q4 = 0;
+            let mut cj_q1 = 0;
+            let mut cj_q2 = 0;
+            let mut cj_q3 = 0;
+            let mut cj_q4 = 0;
 
-            let mut is_rectangle_valid = true;
-            let mut coords_on_edge_1 = 0;
-            let mut coords_on_edge_2 = 0;
-            let mut coords_on_edge_3 = 0;
-            let mut coords_on_edge_4 = 0;
-            for k in 0..coords.len() {
-                if k == i || k == j {
-                    continue;
-                }
-                let coord_k = coords[k];
-
-                if is_inside_area_edge_exclusive(coord_k, x_min, x_max, y_min, y_max) {
-                    is_rectangle_valid = false;
-                    break;
+            for k in (0..coords.len()).filter(|&k| k != i && k != j) {
+                let ck = coords[k];
+                if ck.0 > ci.0 && ck.1 > ci.1 {
+                    ci_q1 += 1;
+                } else if ck.0 < ci.0 && ck.1 > ci.1 {
+                    ci_q2 += 1;
+                } else if ck.0 < ci.0 && ck.1 < ci.1 {
+                    ci_q3 += 1;
+                } else if ck.0 > ci.0 && ck.1 < ci.1 {
+                    ci_q4 += 1;
                 }
 
-                if coord_k.0 == x_min && (coord_k.1 > y_min && coord_k.1 < y_max) {
-                    coords_on_edge_1 += 1;
-                } else if coord_k.0 == x_max && (coord_k.1 > y_min && coord_k.1 < y_max) {
-                    coords_on_edge_2 += 1;
-                } else if coord_k.1 == y_min && (coord_k.0 > x_min && coord_k.0 < x_max) {
-                    coords_on_edge_3 += 1;
-                } else if coord_k.1 == y_max && (coord_k.0 > x_min && coord_k.0 < x_max) {
-                    coords_on_edge_4 += 1;
+                if ck.0 > cj.0 && ck.1 > cj.1 {
+                    cj_q1 += 1;
+                } else if ck.0 < cj.0 && ck.1 > cj.1 {
+                    cj_q2 += 1;
+                } else if ck.0 < cj.0 && ck.1 < cj.1 {
+                    cj_q3 += 1;
+                } else if ck.0 > cj.0 && ck.1 < cj.1 {
+                    cj_q4 += 1;
                 }
             }
 
-            if coords_on_edge_1 % 2 != 0
-                || coords_on_edge_2 % 2 != 0
-                || coords_on_edge_3 % 2 != 0
-                || coords_on_edge_4 % 2 != 0
-            {
-                is_rectangle_valid = false;
-            }
-
-            println!("Checking area between {:?} and {:?}", ci, cj);
-            if !is_rectangle_valid {
-                continue;
-            }
+            println!(
+                "points in relation to ci: {} {} -> (Q1, Q2, Q3, Q4): {} {} {} {}",
+                ci.0, ci.1, ci_q1, ci_q2, ci_q3, ci_q4
+            );
+            println!(
+                "points in relation to cj: {} {} -> (Q1, Q2, Q3, Q4): {} {} {} {}",
+                cj.0, cj.1, cj_q1, cj_q2, cj_q3, cj_q4
+            );
 
             print_map_with_area(&coords, ci, cj);
             let a = area(ci, cj);
