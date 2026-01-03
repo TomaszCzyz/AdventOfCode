@@ -1,5 +1,6 @@
 use itertools::Itertools;
-use std::{fs, iter};
+use std::collections::HashSet;
+use std::fs;
 
 type Coord = (i64, i64);
 
@@ -35,78 +36,67 @@ fn part_1(filename: &str) -> i64 {
     current_best
 }
 
-struct CoordInfo {
-    coord: Coord,
-    prev_green: Coord,
-    next_green: Coord,
-}
-
-fn move_one_step(from: Coord, to: Coord) -> Coord {
-    if from.0 < to.0 {
-        (from.0 + 1, from.1)
-    } else if from.0 > to.0 {
-        (from.0 - 1, from.1)
-    } else if from.1 < to.1 {
-        (from.0, from.1 + 1)
-    } else if from.1 > to.1 {
-        (from.0, from.1 - 1)
-    } else {
-        panic!("from and to are the same: {:?}", from);
-    }
-}
-
 fn part_2(filename: &str) -> i64 {
     let coords = read_input(filename);
     println!("coords: {:?}", coords);
 
+    let coords_all = coords
+        .iter()
+        .circular_tuple_windows::<(_, _)>()
+        .flat_map(|(c1, c2)| {
+            if c1.0 == c2.0 {
+                (c1.1.min(c2.1)..=c1.1.max(c2.1))
+                    .map(|a| (c1.0, a))
+                    .collect::<Vec<_>>()
+            } else {
+                (c1.0.min(c2.0)..=c1.0.max(c2.0))
+                    .map(|a| (a, c1.1))
+                    .collect::<Vec<_>>()
+            }
+        })
+        .collect::<HashSet<_>>();
+
     let mut current_best = 0;
     for i in 0..coords.len() {
-        // for j in (i + 1)..coords.len() {
-        for j in (0..coords.len()).filter(|j| *j != i) {
-            let (ci, cj) = (coords[i], coords[j]);
+        let ci = coords[i];
+        for j in (i + 1)..coords.len() {
+            let cj = coords[j];
+            let x_min = ci.0.min(cj.0);
+            let x_max = ci.0.max(cj.0);
+            let y_min = ci.1.min(cj.1);
+            let y_max = ci.1.max(cj.1);
 
-            let mut ci_q1 = 0;
-            let mut ci_q2 = 0;
-            let mut ci_q3 = 0;
-            let mut ci_q4 = 0;
-            let mut cj_q1 = 0;
-            let mut cj_q2 = 0;
-            let mut cj_q3 = 0;
-            let mut cj_q4 = 0;
-
-            for k in (0..coords.len()).filter(|&k| k != i && k != j) {
-                let ck = coords[k];
-                if ck.0 > ci.0 && ck.1 > ci.1 {
-                    ci_q1 += 1;
-                } else if ck.0 < ci.0 && ck.1 > ci.1 {
-                    ci_q2 += 1;
-                } else if ck.0 < ci.0 && ck.1 < ci.1 {
-                    ci_q3 += 1;
-                } else if ck.0 > ci.0 && ck.1 < ci.1 {
-                    ci_q4 += 1;
+            let is_valid = 'rectangle_check: {
+                // fast fail path
+                for pk in coords.iter() {
+                    if is_inside_area_edge_exclusive(*pk, x_min, x_max, y_min, y_max) {
+                        break 'rectangle_check false;
+                    }
                 }
 
-                if ck.0 > cj.0 && ck.1 > cj.1 {
-                    cj_q1 += 1;
-                } else if ck.0 < cj.0 && ck.1 > cj.1 {
-                    cj_q2 += 1;
-                } else if ck.0 < cj.0 && ck.1 < cj.1 {
-                    cj_q3 += 1;
-                } else if ck.0 > cj.0 && ck.1 < cj.1 {
-                    cj_q4 += 1;
+                // accurate checks
+                for x in (x_min + 1)..(x_max - 1) {
+                    if coords_all.contains(&(x, y_min + 1)) || coords_all.contains(&(x, y_max - 1))
+                    {
+                        break 'rectangle_check false;
+                    }
                 }
+
+                for y in (y_min + 1)..(y_max - 1) {
+                    if coords_all.contains(&(x_min + 1, y)) || coords_all.contains(&(x_max - 1, y))
+                    {
+                        break 'rectangle_check false;
+                    }
+                }
+
+                true
+            };
+
+            if !is_valid {
+                continue;
             }
 
-            println!(
-                "points in relation to ci: {} {} -> (Q1, Q2, Q3, Q4): {} {} {} {}",
-                ci.0, ci.1, ci_q1, ci_q2, ci_q3, ci_q4
-            );
-            println!(
-                "points in relation to cj: {} {} -> (Q1, Q2, Q3, Q4): {} {} {} {}",
-                cj.0, cj.1, cj_q1, cj_q2, cj_q3, cj_q4
-            );
-
-            print_map_with_area(&coords, ci, cj);
+            // print_map_with_area(&coords, ci, cj);
             let a = area(ci, cj);
             if a > current_best {
                 current_best = a;
@@ -117,16 +107,8 @@ fn part_2(filename: &str) -> i64 {
     current_best
 }
 
-fn is_inside_area_edge_inclusive(p: Coord, x_min: i64, x_max: i64, y_min: i64, y_max: i64) -> bool {
-    (p.0 >= x_min && p.0 <= x_max) && (p.1 >= y_min && p.1 <= y_max)
-}
-
 fn is_inside_area_edge_exclusive(p: Coord, x_min: i64, x_max: i64, y_min: i64, y_max: i64) -> bool {
     p.0 > x_min && p.0 < x_max && p.1 > y_min && p.1 < y_max
-}
-
-fn is_on_edge(p: Coord, x_min: i64, x_max: i64, y_min: i64, y_max: i64) -> bool {
-    p.0 == x_min || p.0 == x_max || p.1 == y_min || p.1 == y_max
 }
 
 fn print_map_with_area(coords: &Vec<Coord>, c1: Coord, c2: Coord) {
@@ -189,7 +171,7 @@ mod tests {
         let answer = part_2("inputs/09_input_example_1.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 25272);
+        assert_eq!(answer, 24);
     }
 
     #[test]
@@ -197,6 +179,6 @@ mod tests {
         let answer = part_2("inputs/09_input.txt");
 
         println!("part 2 - example - answer: {:?}", answer);
-        assert_eq!(answer, 8759985540);
+        assert_eq!(answer, 1452422268);
     }
 }
