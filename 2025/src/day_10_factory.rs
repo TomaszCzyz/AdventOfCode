@@ -1,22 +1,61 @@
-use itertools::Itertools;
 use std::fs;
 
-fn read_input(file_name: &str) -> Vec<Coord> {
+type ButtonLights = Vec<i64>;
+
+#[derive(Debug)]
+struct Instruction {
+    desired_state: Vec<bool>,
+    buttons: Vec<ButtonLights>,
+    joltage_requirements: Vec<i64>,
+}
+
+fn read_input(file_name: &str) -> Vec<Instruction> {
     fs::read_to_string(file_name)
         .unwrap()
         .lines()
         .map(|line| {
-            let parts = line
+            let segments = line.trim().split_whitespace().collect::<Vec<_>>();
+
+            let desired_state = segments[0]
+                .trim_matches(|c| c == '[' || c == ']')
+                .chars()
+                .enumerate()
+                .map(|(idx, c)| match c {
+                    '.' => false,
+                    '#' => true,
+                    _ => panic!("unexpected char"),
+                })
+                .collect();
+
+            let joltage_requirements = segments[segments.len() - 1]
+                .trim_matches(|c| c == '{' || c == '}')
                 .split(',')
                 .map(|s| s.parse::<i64>().unwrap())
                 .collect::<Vec<_>>();
-            (parts[0], parts[1])
+
+            let buttons = segments[1..segments.len() - 1]
+                .iter()
+                .map(|&s| {
+                    s.trim_matches(|c| c == '(' || c == ')')
+                        .split(',')
+                        .map(|s| s.parse::<i64>().unwrap())
+                        .collect::<ButtonLights>()
+                })
+                .collect::<Vec<_>>();
+
+            Instruction {
+                desired_state,
+                buttons,
+                joltage_requirements,
+            }
         })
         .collect::<Vec<_>>()
 }
 
 fn part_1(filename: &str) -> i64 {
-    _ = read_input(filename);
+    let input = read_input(filename);
+
+    println!("input: {:?}", input);
 
     todo!()
 }
