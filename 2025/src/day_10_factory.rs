@@ -1,11 +1,15 @@
+use nalgebra::DMatrix;
+use std::collections::VecDeque;
 use std::fs;
 
-type ButtonLights = Vec<i64>;
+type ButtonMask = Vec<u8>;
+
+const EPS: f64 = 1e-6;
 
 #[derive(Debug)]
 struct Instruction {
-    desired_state: Vec<bool>,
-    buttons: Vec<ButtonLights>,
+    desired_state: Vec<u8>,
+    buttons: Vec<ButtonMask>,
     joltage_requirements: Vec<i64>,
 }
 
@@ -21,11 +25,11 @@ fn read_input(file_name: &str) -> Vec<Instruction> {
                 .chars()
                 .enumerate()
                 .map(|(idx, c)| match c {
-                    '.' => false,
-                    '#' => true,
+                    '.' => 0u8,
+                    '#' => 1u8,
                     _ => panic!("unexpected char"),
                 })
-                .collect();
+                .collect::<Vec<_>>();
 
             let joltage_requirements = segments[segments.len() - 1]
                 .trim_matches(|c| c == '{' || c == '}')
@@ -36,10 +40,13 @@ fn read_input(file_name: &str) -> Vec<Instruction> {
             let buttons = segments[1..segments.len() - 1]
                 .iter()
                 .map(|&s| {
+                    let mut mask = vec![0u8; desired_state.len()];
                     s.trim_matches(|c| c == '(' || c == ')')
                         .split(',')
-                        .map(|s| s.parse::<i64>().unwrap())
-                        .collect::<ButtonLights>()
+                        .map(|s| s.parse::<usize>().unwrap())
+                        .for_each(|c| mask[c] = 1);
+
+                    mask
                 })
                 .collect::<Vec<_>>();
 
@@ -52,12 +59,69 @@ fn read_input(file_name: &str) -> Vec<Instruction> {
         .collect::<Vec<_>>()
 }
 
-fn part_1(filename: &str) -> i64 {
+fn part_1(filename: &str) -> usize {
     let input = read_input(filename);
 
-    println!("input: {:?}", input);
+    input
+        .into_iter()
+        .skip(2)
+        .map(|instruction| dbg!(find_lowest_solution(instruction)))
+        .sum()
+}
 
-    todo!()
+fn find_lowest_solution(instruction: Instruction) -> usize {
+    let mut states_queue = VecDeque::from([instruction.desired_state.clone()]);
+
+    while let Some(state) = states_queue.pop_front() {
+        match solve_for_state(&instruction.buttons, &state) {
+            Some(solution) => return solution,
+            None => {
+                for i in 0..state.len() {
+                    let mut new_state = state.clone();
+                    new_state[i] += 2;
+                    states_queue.push_back(new_state);
+                }
+            }
+        }
+    }
+
+    panic!("no solution found")
+}
+
+fn solve_for_state(button_masks: &Vec<ButtonMask>, light_state: &Vec<u8>) -> Option<usize> {
+    let m = buttons_to_matrix(button_masks);
+
+    let m_inverse = m
+        .svd(true, true)
+        .pseudo_inverse(EPS)
+        .expect("failed to compute pseudo-inverse");
+
+    let state = DMatrix::from_row_slice(
+        light_state.len(),
+        1,
+        &light_state.iter().map(|&v| v as f64).collect::<Vec<_>>(),
+    );
+    let solution = m_inverse * state;
+
+    if solution.iter().all(|f| {
+        let x = f.fract();
+        x < EPS || x > 1f64 - EPS
+    }) {
+        Some(solution.iter().map(|f| f.round() as usize).sum())
+    } else {
+        None
+    }
+}
+
+fn buttons_to_matrix(buttons: &[ButtonMask]) -> DMatrix<f64> {
+    let cols = buttons.len();
+    let rows = buttons[0].len();
+
+    let data: Vec<f64> = (0..cols)
+        .flat_map(|c| (0..rows).map(move |r| buttons[c][r] as f64))
+        .collect();
+
+    DMatrix::from_column_slice(rows, cols, &data)
 }
 
 fn part_2(filename: &str) -> i64 {
