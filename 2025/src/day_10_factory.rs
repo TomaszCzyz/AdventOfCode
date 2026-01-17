@@ -64,7 +64,6 @@ fn part_1(filename: &str) -> usize {
 
     input
         .into_iter()
-        .skip(2)
         .map(|instruction| dbg!(find_lowest_solution(instruction)))
         .sum()
 }
@@ -73,12 +72,13 @@ fn find_lowest_solution(instruction: Instruction) -> usize {
     let mut states_queue = VecDeque::from([instruction.desired_state.clone()]);
 
     while let Some(state) = states_queue.pop_front() {
-        match solve_for_state(&instruction.buttons, &state) {
+        match solve_for_state_2(&instruction.buttons, &state) {
             Some(solution) => return solution,
             None => {
                 for i in 0..state.len() {
                     let mut new_state = state.clone();
                     new_state[i] += 2;
+
                     states_queue.push_back(new_state);
                 }
             }
@@ -90,18 +90,23 @@ fn find_lowest_solution(instruction: Instruction) -> usize {
 
 fn solve_for_state(button_masks: &Vec<ButtonMask>, light_state: &Vec<u8>) -> Option<usize> {
     let m = buttons_to_matrix(button_masks);
+    println!("{}", m);
 
     let m_inverse = m
         .svd(true, true)
         .pseudo_inverse(EPS)
         .expect("failed to compute pseudo-inverse");
+    println!("{:.2}", m_inverse);
 
     let state = DMatrix::from_row_slice(
         light_state.len(),
         1,
         &light_state.iter().map(|&v| v as f64).collect::<Vec<_>>(),
     );
+    println!("{}", state);
+
     let solution = m_inverse * state;
+    println!("solution: {}\n\n", solution);
 
     if solution.iter().all(|f| {
         let x = f.fract();
@@ -111,6 +116,82 @@ fn solve_for_state(button_masks: &Vec<ButtonMask>, light_state: &Vec<u8>) -> Opt
     } else {
         None
     }
+}
+
+fn solve_for_state_2(button_masks: &Vec<ButtonMask>, light_state: &Vec<u8>) -> Option<usize> {
+    let num_lights = light_state.len();
+    let num_buttons = button_masks.len();
+
+    // 1. Build the Augmented Matrix: [Matrix | Target]
+    // Each row represents a light, each column a button.
+    // We add one extra column at the end for the target light_state.
+    let mut matrix: Vec<Vec<u8>> = vec![vec![0; num_buttons + 1]; num_lights];
+
+    for r in 0..num_lights {
+        for c in 0..num_buttons {
+            // If button 'c' affects light 'r', set to 1
+            // Using % 2 to ensure we stay in binary (0 or 1)
+            matrix[r][c] = button_masks[c][r] % 2;
+        }
+        matrix[r][num_buttons] = light_state[r] % 2;
+    }
+
+    // 2. Gaussian Elimination
+    let mut pivot_row = 0;
+    let mut pivot_cols = vec![None; num_buttons];
+
+    for c in 0..num_buttons {
+        if pivot_row >= num_lights {
+            break;
+        }
+
+        // Find a pivot (a '1') in the current column
+        let mut sel = None;
+        for r in pivot_row..num_lights {
+            if matrix[r][c] == 1 {
+                sel = Some(r);
+                break;
+            }
+        }
+
+        if let Some(r) = sel {
+            matrix.swap(r, pivot_row);
+
+            // XOR this row with all other rows that have a '1' in this column
+            // This eliminates the variable from all other equations
+            for i in 0..num_lights {
+                if i != pivot_row && matrix[i][c] == 1 {
+                    for j in c..=num_buttons {
+                        matrix[i][j] ^= matrix[pivot_row][j];
+                    }
+                }
+            }
+            pivot_cols[c] = Some(pivot_row);
+            pivot_row += 1;
+        }
+    }
+
+    // 3. Consistency Check (Handles non-square/overdetermined systems)
+    // If a row is all 0s but the target state column is 1 (0 = 1), no solution exists.
+    for r in pivot_row..num_lights {
+        if matrix[r][num_buttons] == 1 {
+            return None;
+        }
+    }
+
+    // 4. Extraction
+    // Any button that isn't a pivot is a "free variable".
+    // Setting free variables to 0 gives us a valid positive solution.
+    let mut solution_presses = 0;
+    for c in 0..num_buttons {
+        if let Some(r) = pivot_cols[c] {
+            if matrix[r][num_buttons] == 1 {
+                solution_presses += 1;
+            }
+        }
+    }
+
+    Some(solution_presses)
 }
 
 fn buttons_to_matrix(buttons: &[ButtonMask]) -> DMatrix<f64> {
@@ -140,6 +221,22 @@ mod tests {
 
         println!("part 1 - example - answer: {:?}", answer);
         assert_eq!(answer, 7);
+    }
+
+    #[test]
+    fn part_1_input_example_2() {
+        let answer = part_1("inputs/10_input_example_2.txt");
+
+        println!("part 1 - example - answer: {:?}", answer);
+        assert_eq!(answer, 2);
+    }
+
+    #[test]
+    fn part_1_input_example_3() {
+        let answer = part_1("inputs/10_input_example_3.txt");
+
+        println!("part 1 - example - answer: {:?}", answer);
+        assert_eq!(answer, 2);
     }
 
     #[test]
