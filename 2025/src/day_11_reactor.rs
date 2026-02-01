@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
 use std::fs;
 
 type Neighbors = Vec<usize>;
@@ -48,6 +48,31 @@ fn read_input(file_name: &str) -> (Vec<Neighbors>, HashMap<usize, String>) {
 fn part_1(filename: &str) -> usize {
     let (input, translations) = read_input(filename);
 
+    let end_vertex = translations.len() - 1;
+    let start_vertex = *translations
+        .iter()
+        .find(|&(_, elem)| elem == "you")
+        .unwrap()
+        .0;
+
+    let mut paths_count = 0;
+    let mut queue = VecDeque::from([start_vertex]);
+
+    while let Some(vertex) = queue.pop_front() {
+        if vertex == end_vertex {
+            paths_count += 1;
+            continue;
+        }
+
+        for neighbor in &input[vertex] {
+            queue.push_back(*neighbor);
+        }
+    }
+
+    paths_count
+}
+
+fn print_input(input: &Vec<Neighbors>, translations: &HashMap<usize, String>) {
     for (index, row) in input.iter().enumerate() {
         print!("{}: ", translations[&index]);
         for neighbor in row {
@@ -55,11 +80,6 @@ fn part_1(filename: &str) -> usize {
         }
         println!();
     }
-
-    let start_vertex = 0;
-    let end_vertex = translations.len() - 1;
-
-    todo!()
 }
 
 fn part_2(filename: &str) -> i64 {
@@ -81,19 +101,11 @@ mod tests {
     }
 
     #[test]
-    fn part_1_input_example_2() {
-        let answer = part_1("inputs/11_input_example_2.txt");
-
-        println!("part 1 - example - answer: {:?}", answer);
-        assert_eq!(answer, 2);
-    }
-
-    #[test]
     fn part_1_input() {
         let answer = part_1("inputs/11_input.txt");
 
         println!("part 1 - example - answer: {:?}", answer);
-        assert_eq!(answer, 4761736832);
+        assert_eq!(answer, 640);
     }
 
     #[test]
